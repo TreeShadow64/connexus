@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import mimetypes
+import os
 import platform
 import queue
 import subprocess
@@ -32,6 +33,7 @@ import service_client
 import wol
 import mouse_guard
 import screen_stream
+import updater
 import webos_remote
 from paths import app_dir
 
@@ -1013,6 +1015,7 @@ def collect_dashboard_status():
         "service_installed": service_client.is_installed(),
         "account_paired": firebase_relay.is_enabled(),
         "own_device_id": firebase_relay.own_device_id(),
+        "app_version": updater.APP_VERSION,
     }
 
 
@@ -1044,6 +1047,21 @@ def handle_dashboard_action(action, payload):
     if action == "remove_device":
         firebase_relay.remove_device(payload.get("device_id"))
         return {"ok": True}
+    if action == "check_update":
+        return updater.check_latest() or {"update_available": False}
+    if action == "start_update":
+        try:
+            # I file vanno rilasciati prima che il .bat esterno possa
+            # sovrascriverli: l'uscita e' ritardata di un secondo per dare
+            # tempo alla risposta HTTP di questa stessa richiesta di partire.
+            updater.apply_update(
+                payload.get("zip_url"),
+                on_restart=lambda: threading.Timer(1.0, lambda: os._exit(0)).start(),
+            )
+            return {"ok": True}
+        except Exception as e:
+            log.warning(f"Aggiornamento PC fallito: {e}")
+            return {"ok": False, "error": str(e)}
     return {"ok": False, "error": "azione sconosciuta"}
 
 

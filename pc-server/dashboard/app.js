@@ -182,7 +182,50 @@ function renderReteView(status) {
 
 // ---------- sistema ----------
 
+let updateCheckResult = null;
+
+async function checkForUpdate() {
+    updateCheckResult = { checking: true };
+    renderSistemaView(lastStatus);
+    updateCheckResult = await runAction("check_update");
+    renderSistemaView(lastStatus);
+}
+
+async function applyUpdate(zipUrl) {
+    if (!confirm("Il PC si riavvierà per installare l'aggiornamento. Continuare?")) return;
+    updateCheckResult = { applying: true };
+    renderSistemaView(lastStatus);
+    const result = await runAction("start_update", { zip_url: zipUrl });
+    if (!result.ok) {
+        alert("Aggiornamento fallito: " + (result.error || "errore sconosciuto"));
+        updateCheckResult = null;
+        renderSistemaView(lastStatus);
+    }
+    // se ok, il processo attuale sta per chiudersi da solo per lasciare
+    // aggiornare i file: status.json smettera' di rispondere per un attimo.
+}
+
 function renderSistemaView(status) {
+    let updateValue = `versione ${status.app_version}`;
+    let updateActions = `<button class="hud-button" onclick="checkForUpdate()">CONTROLLA AGGIORNAMENTI</button>`;
+    let updateDot = "on";
+    if (updateCheckResult) {
+        if (updateCheckResult.checking) {
+            updateValue = `versione ${status.app_version} — controllo in corso...`;
+            updateActions = "";
+        } else if (updateCheckResult.applying) {
+            updateValue = "installazione in corso, il programma si riavvia tra poco...";
+            updateActions = "";
+            updateDot = "warn";
+        } else if (updateCheckResult.update_available) {
+            updateValue = `versione ${status.app_version} — disponibile ${updateCheckResult.version}`;
+            updateActions = `<button class="hud-button" onclick="applyUpdate('${updateCheckResult.zip_url}')">AGGIORNA ORA</button>`;
+            updateDot = "warn";
+        } else {
+            updateValue = `versione ${status.app_version} — già aggiornato`;
+        }
+    }
+
     const cards = [
         statCard(
             "servizio elevato · sblocco uac / schermata di blocco da remoto", "Servizio Windows",
@@ -194,6 +237,7 @@ function renderSistemaView(status) {
             status.account_paired ? "abbinato, in ascolto" : "non abbinato — apri 'Trova dispositivo' dal telefono",
             status.account_paired ? "on" : "warn"
         ),
+        statCard("aggiornamenti · github releases", "Versione PC", updateValue, updateDot, updateActions),
     ];
     if (!status.service_installed) {
         cards.push(`

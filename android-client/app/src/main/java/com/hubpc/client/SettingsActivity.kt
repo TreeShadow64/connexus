@@ -17,6 +17,7 @@ import com.hubpc.client.databinding.ActivitySettingsBinding
 import com.hubpc.client.databinding.DialogProfileBinding
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONObject
 import java.io.File
 
 class SettingsActivity : AppCompatActivity() {
@@ -28,6 +29,7 @@ class SettingsActivity : AppCompatActivity() {
         private const val PREFS_NAME = HubApplication.PREFS_NAME
         private const val PREF_THEME = HubApplication.PREF_THEME
         private const val FEEDBACK_EMAIL = "dario.ryzza@gmail.com"
+        private const val RELEASES_API = "https://api.github.com/repos/TreeShadow64/connexus/releases/latest"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -182,27 +184,38 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun startUpdate() {
-        val ip = profiles.firstOrNull()?.ip.orEmpty()
-        if (ip.isEmpty()) {
-            binding.textUpdateStatus.text = "Configura prima una connessione al PC qui sopra"
-            return
-        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
             binding.textUpdateStatus.text = "Concedi il permesso di installare app, poi tocca di nuovo AGGIORNA APP"
             startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
             return
         }
-        downloadAndInstall(ip)
+        downloadAndInstall()
     }
 
-    private fun downloadAndInstall(ip: String) {
+    /** Scarica l'ultima release da GitHub invece che dal PC abbinato: deve
+     * funzionare anche fuori casa e col PC spento, non solo in LAN. */
+    private fun downloadAndInstall() {
         binding.buttonUpdateApp.isEnabled = false
-        binding.textUpdateStatus.text = "Download in corso..."
+        binding.textUpdateStatus.text = "Controllo aggiornamenti..."
         Thread {
             try {
                 val client = OkHttpClient()
-                val request = Request.Builder().url("http://$ip:8766/hub-client.apk").build()
-                val response = client.newCall(request).execute()
+                val apiResponse = client.newCall(Request.Builder().url(RELEASES_API).build()).execute()
+                if (!apiResponse.isSuccessful) throw java.io.IOException("HTTP ${apiResponse.code}")
+                val release = JSONObject(apiResponse.body?.string().orEmpty())
+                val assets = release.getJSONArray("assets")
+                var apkUrl: String? = null
+                for (i in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(i)
+                    if (asset.getString("name").endsWith(".apk")) {
+                        apkUrl = asset.getString("browser_download_url")
+                        break
+                    }
+                }
+                if (apkUrl == null) throw java.io.IOException("Nessun APK nell'ultima release")
+
+                runOnUiThread { binding.textUpdateStatus.text = "Download in corso..." }
+                val response = client.newCall(Request.Builder().url(apkUrl).build()).execute()
                 if (!response.isSuccessful) throw java.io.IOException("HTTP ${response.code}")
 
                 val updatesDir = File(cacheDir, "updates").apply { mkdirs() }
