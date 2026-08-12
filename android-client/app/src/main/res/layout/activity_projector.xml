@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:gravity="center">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="24dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.1"
+            android:text="PROJECTOR"
+            android:textColor="@color/cyan"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/helpProjector"
+            style="@style/HelpBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="?" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/textProjectorStatus"
+        style="@style/Text.Hud.Status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:layout_marginBottom="24dp"
+        android:text="Ferma" />
+
+    <Button
+        android:id="@+id/buttonProjectorToggle"
+        style="@style/Widget.Hud.Button.Accent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="AVVIA SPECCHIO SUL PC" />
+
+</LinearLayout>

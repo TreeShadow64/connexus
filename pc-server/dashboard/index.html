@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<title>Connexus // PC Hub</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="hud-grid-bg"></div>
+<div class="hud-scanline"></div>
+
+<div class="app-shell">
+
+    <header class="app-topbar">
+        <div style="display:flex; align-items:center; gap:14px;">
+            <svg width="30" height="30" viewBox="0 0 30 30">
+                <circle cx="15" cy="15" r="13" fill="none" stroke="var(--cyan-glow)" stroke-width="1" opacity="0.5"/>
+                <circle cx="15" cy="15" r="9" fill="none" stroke="var(--cyan-glow)" stroke-width="1.4"/>
+                <circle cx="15" cy="15" r="2" fill="var(--cyan-glow)"/>
+                <path d="M15 2 L15 6 M15 24 L15 28 M2 15 L6 15 M24 15 L28 15" stroke="var(--cyan-glow)" stroke-width="1" opacity="0.6"/>
+            </svg>
+            <div>
+                <div class="hud-title" style="font-size:16px;">CONNEXUS <span style="color:var(--cyan-glow)">// PC HUB</span></div>
+                <div class="hud-eyebrow" id="hostnameLabel">HOST // ---</div>
+            </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:22px;">
+            <div style="text-align:right;">
+                <div class="hud-eyebrow">ACCOUNT</div>
+                <div class="hud-mono" id="accountStatus" style="font-size:11px; color:var(--text-dim);">verifica...</div>
+            </div>
+            <div style="text-align:right;">
+                <div class="hud-eyebrow">SISTEMA</div>
+                <div style="display:flex; align-items:center; gap:6px; justify-content:flex-end;">
+                    <span class="hud-dot on" id="systemDot"></span>
+                    <span class="hud-mono" id="systemStatus" style="font-size:11px;">ONLINE</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="app-body">
+        <nav class="app-nav">
+            <div class="app-nav-item active" data-view="overview">Overview</div>
+            <div class="app-nav-item" data-view="schermo">Schermo &amp; Proiezione</div>
+            <div class="app-nav-item" data-view="webcam">Webcam</div>
+            <div class="app-nav-item" data-view="rete">File &amp; Rete</div>
+            <div class="app-nav-item" data-view="sistema">Sistema</div>
+            <div class="app-nav-item" data-view="trova">Trova Dispositivo</div>
+        </nav>
+
+        <main class="app-main">
+
+            <section class="view" id="view-overview">
+                <div style="display:flex; justify-content:center; margin-bottom:28px;">
+                    <div class="hud-ring-wrap">
+                        <svg width="260" height="260" viewBox="0 0 260 260" class="hud-ring-spin">
+                            <circle cx="130" cy="130" r="118" fill="none" stroke="var(--cyan-faint)" stroke-width="1"/>
+                            <circle cx="130" cy="130" r="118" fill="none" stroke="var(--cyan-glow)" stroke-width="2"
+                                    stroke-dasharray="40 8 4 8 90 8 4 8" opacity="0.7"/>
+                            <path d="M130 4 l6 12 l-12 0 z" fill="var(--green)"/>
+                            <path d="M130 256 l6 -12 l-12 0 z" fill="var(--green)"/>
+                        </svg>
+                        <svg width="200" height="200" viewBox="0 0 200 200" class="hud-ring-spin-rev" style="position:absolute;">
+                            <circle cx="100" cy="100" r="90" fill="none" stroke="var(--cyan)" stroke-width="1" stroke-dasharray="2 6"/>
+                        </svg>
+                        <svg width="150" height="150" viewBox="0 0 150 150" style="position:absolute;">
+                            <circle cx="75" cy="75" r="66" fill="none" stroke="rgba(111,227,255,0.35)" stroke-width="1"/>
+                        </svg>
+                        <div class="hud-ring-center-label">
+                            <div class="hud-mono" id="clockLabel" style="font-size:28px; color:var(--white); text-shadow:0 0 12px var(--cyan-glow);">--:--:--</div>
+                            <div class="hud-eyebrow" id="dateLabel" style="opacity:0.8; margin-top:2px;">---</div>
+                            <div class="hud-mono" id="clientsLabel" style="font-size:10px; color:var(--text-dim); margin-top:8px;">0 DISPOSITIVI CONNESSI</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hud-grid-3" id="statCards"><!-- popolate via JS --></div>
+            </section>
+
+            <section class="view" id="view-schermo" hidden>
+                <div class="hud-grid-2" id="schermoCards"><!-- popolate via JS --></div>
+            </section>
+
+            <section class="view" id="view-webcam" hidden>
+                <div class="hud-grid-2" id="webcamCards"><!-- popolate via JS --></div>
+            </section>
+
+            <section class="view" id="view-rete" hidden>
+                <div class="hud-eyebrow" style="margin-bottom:10px;">condivisioni attive in questo momento</div>
+                <div id="shareRows"><!-- popolate via JS --></div>
+            </section>
+
+            <section class="view" id="view-sistema" hidden>
+                <div class="hud-grid-2" id="sistemaCards"><!-- popolate via JS --></div>
+            </section>
+
+            <section class="view" id="view-trova" hidden>
+                <div class="hud-eyebrow" style="margin-bottom:10px;">dispositivi sul tuo account</div>
+                <div id="deviceRows"><!-- popolate via JS --></div>
+            </section>
+
+        </main>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical"
+    android:focusable="true"
+    android:focusableInTouchMode="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="4dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.08"
+            android:text="CONNEXUS"
+            android:textColor="@color/cyan"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <View
+            android:id="@+id/dotConnStatus"
+            android:layout_width="7dp"
+            android:layout_height="7dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_remote_circle_mini" />
+
+        <TextView
+            android:id="@+id/textConnStatus"
+            style="@style/Text.Hud.Status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="10dp"
+            android:text="non connesso" />
+
+        <TextView
+            android:id="@+id/buttonSettingsGear"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/bg_icon_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:text="⚙"
+            android:textColor="@color/cyan"
+            android:textSize="18sp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <LinearLayout
+                style="@style/ModuleCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:clickable="false"
+                android:focusable="false">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/Text.Hud.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="stato pc" />
+
+                    <TextView
+                        android:id="@+id/textPcAddress"
+                        style="@style/Text.Hud.Status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/buttonConnect"
+                    style="@style/Widget.Hud.Button.Accent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="RICONNETTI" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="22dp">
+
+                <TextView
+                    style="@style/Text.Hud.Eyebrow"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="controllo" />
+
+                <TextView
+                    android:id="@+id/helpControllo"
+                    style="@style/HelpBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="?" />
+            </LinearLayout>
+
+            <GridLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:columnCount="2"
+                android:rowCount="3">
+
+                <LinearLayout
+                    android:id="@+id/cardTvRemote"
+                    style="@style/ModuleCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:orientation="vertical"
+                    android:minHeight="88dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="▤"
+                        android:textColor="@color/magenta"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="TV e Smart Share"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.Status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Telecomando, app, riproduzione" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/cardPcControl"
+                    style="@style/ModuleCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:orientation="vertical"
+                    android:minHeight="88dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="⌨"
+                        android:textColor="@color/cyan"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Mouse / tastiera"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.Status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Touchpad remoto" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/cardScreen"
+                    style="@style/ModuleCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:orientation="vertical"
+                    android:minHeight="88dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="▭"
+                        android:textColor="@color/green"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Schermo PC"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.Status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Guarda e controlla, con zoom" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/cardProjector"
+                    style="@style/ModuleCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:orientation="vertical"
+                    android:minHeight="88dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="◱"
+                        android:textColor="@color/red"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Projector"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.Status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Specchia il telefono sul PC" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/cardUvcCamera"
+                    style="@style/ModuleCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:orientation="vertical"
+                    android:minHeight="88dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="◍"
+                        android:textColor="@color/cyan_dim"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Camera UVC"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.Status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Webcam gia' sul PC" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/cardFindDevice"
+                    style="@style/ModuleCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:orientation="vertical"
+                    android:minHeight="88dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="◈"
+                        android:textColor="@color/amber"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Trova dispositivo"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.Status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Localizza e fai suonare" />
+                </LinearLayout>
+            </GridLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="18dp">
+
+                <TextView
+                    style="@style/Text.Hud.Eyebrow"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="sistema" />
+
+                <TextView
+                    android:id="@+id/helpSistema"
+                    style="@style/HelpBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="?" />
+            </LinearLayout>
+
+            <GridLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:columnCount="2"
+                android:rowCount="2">
+
+                <LinearLayout
+                    android:id="@+id/cardFiles"
+                    style="@style/ModuleCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:orientation="vertical"
+                    android:minHeight="88dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="⌂"
+                        android:textColor="@color/amber"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Gestione file"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.Status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Trasferimento e pulizia" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/cardSystem"
+                    style="@style/ModuleCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:orientation="vertical"
+                    android:minHeight="88dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="⚡"
+                        android:textColor="@color/text_dim"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Sistema"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/textSystemStatus"
+                        style="@style/Text.Hud.Status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Wake / VPN / servizio" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/cardTaskManager"
+                    style="@style/ModuleCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:orientation="vertical"
+                    android:minHeight="88dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="▦"
+                        android:textColor="@color/magenta"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Task manager"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.Status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Processi in esecuzione" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/cardVirtualCamera"
+                    style="@style/ModuleCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="1"
+                    android:layout_margin="4dp"
+                    android:orientation="vertical"
+                    android:minHeight="88dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="◉"
+                        android:textColor="@color/green"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.SectionLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Virtual camera"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        style="@style/Text.Hud.Status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Telefono come webcam PC" />
+                </LinearLayout>
+            </GridLayout>
+
+            <TextView
+                android:id="@+id/textStatus"
+                style="@style/Text.Hud.Status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="[ log ]" />
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

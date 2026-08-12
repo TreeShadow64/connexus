@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.1"
+                android:text="SISTEMA"
+                android:textColor="@color/cyan"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/helpSystem"
+                style="@style/HelpBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="?" />
+        </LinearLayout>
+
+        <TextView
+            style="@style/Text.Hud.Eyebrow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="vpn su questo telefono" />
+
+        <Button
+            android:id="@+id/buttonLaunchVpn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="AVVIA PROTONVPN" />
+
+        <TextView
+            style="@style/Text.Hud.Eyebrow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="wake-on-lan" />
+
+        <TextView
+            style="@style/Text.Hud.Status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="funziona solo sulla stessa rete Wi-Fi del PC" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/editMac"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:hint="indirizzo MAC del PC"
+                android:textColorHint="@color/text_faint"
+                android:textColor="@color/text_primary"
+                android:breakStrategy="simple"
+                android:inputType="text" />
+
+            <Button
+                android:id="@+id/buttonGetMac"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="OTTIENI" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/buttonWakeOnLan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="SVEGLIA PC" />
+
+        <TextView
+            style="@style/Text.Hud.Eyebrow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="servizio con permessi elevati" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/textServiceStatus"
+                style="@style/Text.Hud.Status"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="servizio UAC: sconosciuto" />
+
+            <Button
+                android:id="@+id/buttonCheckService"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="VERIFICA" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                style="@style/Text.Hud.Eyebrow"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="accesso da fuori casa" />
+
+            <TextView
+                android:id="@+id/helpRemoteAccess"
+                style="@style/HelpBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="?" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/textStatus"
+            style="@style/Text.Hud.Status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="[ log ]" />
+
+    </LinearLayout>
+</ScrollView>

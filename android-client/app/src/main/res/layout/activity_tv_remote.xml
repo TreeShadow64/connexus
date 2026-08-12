@@ -1,0 +1,531 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="vertical">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="16dp"
+            android:paddingBottom="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <TextView
+                    android:id="@+id/textPageTitle"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.1"
+                    android:text="TELECOMANDO"
+                    android:textColor="@color/cyan"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/helpRemote"
+                    style="@style/HelpBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="?" />
+            </LinearLayout>
+
+            <!-- ============ PAGINA TELECOMANDO ============ -->
+            <LinearLayout
+                android:id="@+id/pageRemote"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/textPairStatus"
+                    style="@style/Text.Hud.Status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:layout_marginTop="4dp"
+                    android:text="TV non abbinata — tocca ABBINA TV" />
+
+                <Button
+                    android:id="@+id/buttonTvPair"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:text="ABBINA TV" />
+
+                <!-- corpo del telecomando -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="16dp"
+                    android:background="@drawable/bg_remote_body"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- power / mic / input -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="14dp">
+
+                        <TextView
+                            android:id="@+id/buttonPower"
+                            style="@style/RemoteKey.Circle"
+                            android:text="⏻"
+                            android:textColor="@color/red"
+                            android:background="@drawable/bg_remote_circle_power"
+                            android:textSize="16sp" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:orientation="horizontal">
+
+                            <View android:layout_width="3dp" android:layout_height="3dp" android:layout_margin="1.5dp" android:background="@drawable/bg_remote_circle_mini" />
+                            <View android:layout_width="3dp" android:layout_height="3dp" android:layout_margin="1.5dp" android:background="@drawable/bg_remote_circle_mini" />
+                            <View android:layout_width="3dp" android:layout_height="3dp" android:layout_margin="1.5dp" android:background="@drawable/bg_remote_circle_mini" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/buttonInput"
+                            style="@style/RemoteKey.Circle"
+                            android:text="⇲"
+                            android:textSize="15sp" />
+                    </LinearLayout>
+
+                    <!-- tastierino numerico -->
+                    <GridLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:columnCount="3"
+                        android:rowCount="3">
+
+                        <TextView android:id="@+id/buttonNum1" style="@style/RemoteKey.Pill" android:text="1" />
+                        <TextView android:id="@+id/buttonNum2" style="@style/RemoteKey.Pill" android:text="2" />
+                        <TextView android:id="@+id/buttonNum3" style="@style/RemoteKey.Pill" android:text="3" />
+                        <TextView android:id="@+id/buttonNum4" style="@style/RemoteKey.Pill" android:text="4" />
+                        <TextView android:id="@+id/buttonNum5" style="@style/RemoteKey.Pill" android:text="5" />
+                        <TextView android:id="@+id/buttonNum6" style="@style/RemoteKey.Pill" android:text="6" />
+                        <TextView android:id="@+id/buttonNum7" style="@style/RemoteKey.Pill" android:text="7" />
+                        <TextView android:id="@+id/buttonNum8" style="@style/RemoteKey.Pill" android:text="8" />
+                        <TextView android:id="@+id/buttonNum9" style="@style/RemoteKey.Pill" android:text="9" />
+                    </GridLayout>
+
+                    <!-- riga -/LIST · 0 · ••• -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/buttonTvList"
+                            style="@style/RemoteKey.Pill"
+                            android:layout_weight="1"
+                            android:text="−/LIST"
+                            android:textSize="9sp" />
+
+                        <FrameLayout
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_columnWeight="1"
+                            android:layout_weight="1">
+
+                            <TextView
+                                android:id="@+id/buttonNum0"
+                                style="@style/RemoteKey.Circle"
+                                android:layout_gravity="center"
+                                android:text="0" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/buttonTvDash"
+                            style="@style/RemoteKey.Pill"
+                            android:layout_weight="1"
+                            android:text="•••"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView style="@style/Text.Hud.Caption" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:gravity="center" android:text="" />
+                        <TextView style="@style/Text.Hud.Caption" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:gravity="center" android:text="QUICK ACCESS" />
+                        <TextView style="@style/Text.Hud.Caption" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:gravity="center" android:text="AD/SAP" />
+                    </LinearLayout>
+
+                    <!-- volume / mic / canale -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="10dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:gravity="center_horizontal">
+
+                            <TextView android:id="@+id/buttonVolUp" style="@style/RemoteKey" android:layout_width="34dp" android:layout_height="24dp" android:background="@drawable/bg_remote_rect" android:text="＋" android:textSize="13sp" />
+                            <TextView android:id="@+id/buttonMute" style="@style/RemoteKey" android:layout_width="18dp" android:layout_height="18dp" android:layout_marginTop="6dp" android:layout_marginBottom="6dp" android:background="@drawable/bg_remote_circle_mini" android:text="🔊" android:textSize="8sp" android:textColor="@color/remote_dim_text" />
+                            <TextView android:id="@+id/buttonVolDown" style="@style/RemoteKey" android:layout_width="34dp" android:layout_height="24dp" android:background="@drawable/bg_remote_rect" android:text="－" android:textSize="13sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:gravity="center">
+
+                            <TextView
+                                android:id="@+id/buttonMic"
+                                style="@style/RemoteKey.Circle"
+                                android:layout_width="44dp"
+                                android:layout_height="44dp"
+                                android:text="🎙"
+                                android:textSize="16sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:gravity="center_horizontal">
+
+                            <TextView android:id="@+id/buttonChUp" style="@style/RemoteKey" android:layout_width="34dp" android:layout_height="24dp" android:background="@drawable/bg_remote_rect" android:text="⌃" android:textSize="13sp" />
+                            <View android:layout_width="18dp" android:layout_height="18dp" android:layout_marginTop="6dp" android:layout_marginBottom="6dp" android:background="@drawable/bg_remote_circle_mini" />
+                            <TextView android:id="@+id/buttonChDown" style="@style/RemoteKey" android:layout_width="34dp" android:layout_height="24dp" android:background="@drawable/bg_remote_rect" android:text="⌄" android:textSize="13sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- home / impostazioni -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:layout_marginBottom="10dp">
+
+                        <TextView android:id="@+id/buttonHome" style="@style/RemoteKey.Circle" android:layout_width="30dp" android:layout_height="30dp" android:layout_marginEnd="40dp" android:text="⌂" android:textSize="13sp" />
+                        <TextView android:id="@+id/buttonSettings" style="@style/RemoteKey.Circle" android:layout_width="30dp" android:layout_height="30dp" android:text="⚙" android:textSize="13sp" />
+                    </LinearLayout>
+
+                    <!-- rotella OK -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <FrameLayout
+                            android:layout_width="104dp"
+                            android:layout_height="104dp"
+                            android:layout_gravity="center_horizontal"
+                            android:background="@drawable/bg_remote_wheel">
+
+                            <View android:layout_width="3dp" android:layout_height="9dp" android:layout_gravity="top|center_horizontal" android:layout_marginTop="8dp" android:background="@color/remote_tick" />
+                            <View android:layout_width="3dp" android:layout_height="9dp" android:layout_gravity="bottom|center_horizontal" android:layout_marginBottom="8dp" android:background="@color/remote_tick" />
+                            <View android:layout_width="9dp" android:layout_height="3dp" android:layout_gravity="start|center_vertical" android:layout_marginStart="8dp" android:background="@color/remote_tick" />
+                            <View android:layout_width="9dp" android:layout_height="3dp" android:layout_gravity="end|center_vertical" android:layout_marginEnd="8dp" android:background="@color/remote_tick" />
+
+                            <TextView android:id="@+id/buttonDpadUp" android:layout_width="46dp" android:layout_height="26dp" android:layout_gravity="top|center_horizontal" android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground" />
+                            <TextView android:id="@+id/buttonDpadDown" android:layout_width="46dp" android:layout_height="26dp" android:layout_gravity="bottom|center_horizontal" android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground" />
+                            <TextView android:id="@+id/buttonDpadLeft" android:layout_width="26dp" android:layout_height="46dp" android:layout_gravity="start|center_vertical" android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground" />
+                            <TextView android:id="@+id/buttonDpadRight" android:layout_width="26dp" android:layout_height="46dp" android:layout_gravity="end|center_vertical" android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground" />
+
+                            <TextView
+                                android:id="@+id/buttonDpadEnter"
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:layout_gravity="center"
+                                android:background="@drawable/bg_remote_nub"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:foreground="?attr/selectableItemBackground" />
+                        </FrameLayout>
+                    </LinearLayout>
+
+                    <!-- indietro / guida -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="10dp">
+
+                        <TextView android:id="@+id/buttonDpadBack" style="@style/RemoteKey" android:layout_width="34dp" android:layout_height="26dp" android:background="@drawable/bg_remote_rect" android:text="↩" android:textSize="13sp" />
+
+                        <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+
+                        <TextView android:id="@+id/buttonGuide" style="@style/RemoteKey" android:layout_width="wrap_content" android:layout_height="26dp" android:minWidth="70dp" android:paddingStart="10dp" android:paddingEnd="10dp" android:background="@drawable/bg_remote_rect" android:text="☰ GUIDE" android:textSize="9sp" android:letterSpacing="0.05" />
+                    </LinearLayout>
+
+                    <!-- scorciatoie app -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="10dp">
+
+                        <TextView
+                            android:id="@+id/buttonQuickNetflix"
+                            android:layout_width="0dp"
+                            android:layout_height="30dp"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="6dp"
+                            android:background="@drawable/bg_remote_pill_netflix"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:foreground="?attr/selectableItemBackground"
+                            android:fontFamily="sans-serif-black"
+                            android:gravity="center"
+                            android:text="N"
+                            android:textColor="#E50914"
+                            android:textSize="15sp" />
+
+                        <TextView
+                            android:id="@+id/buttonQuickInput"
+                            style="@style/RemoteKey.Circle"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:layout_marginEnd="6dp"
+                            android:text="⇄"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/buttonQuickPrime"
+                            android:layout_width="0dp"
+                            android:layout_height="30dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_remote_pill_prime"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:foreground="?attr/selectableItemBackground"
+                            android:fontFamily="sans-serif-black"
+                            android:gravity="center"
+                            android:text="prime"
+                            android:textColor="#00A8E1"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <!-- tasti colorati -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="10dp">
+
+                        <View android:id="@+id/buttonTvRed" android:layout_width="0dp" android:layout_weight="1" android:layout_height="18dp" android:layout_marginEnd="4dp" android:background="@drawable/bg_capsule_red" android:clickable="true" android:focusable="true" />
+                        <View android:id="@+id/buttonTvGreen" android:layout_width="0dp" android:layout_weight="1" android:layout_height="18dp" android:layout_marginStart="4dp" android:layout_marginEnd="4dp" android:background="@drawable/bg_capsule_green" android:clickable="true" android:focusable="true" />
+                        <View android:id="@+id/buttonTvYellow" android:layout_width="0dp" android:layout_weight="1" android:layout_height="18dp" android:layout_marginStart="4dp" android:layout_marginEnd="4dp" android:background="@drawable/bg_capsule_yellow" android:clickable="true" android:focusable="true" />
+                        <View android:id="@+id/buttonTvBlue" android:layout_width="0dp" android:layout_weight="1" android:layout_height="18dp" android:layout_marginStart="4dp" android:background="@drawable/bg_capsule_blue" android:clickable="true" android:focusable="true" />
+                    </LinearLayout>
+
+                    <!-- play / pausa -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView android:id="@+id/buttonPlay" style="@style/RemoteKey" android:layout_width="0dp" android:layout_weight="1" android:layout_height="24dp" android:layout_marginEnd="4dp" android:background="@drawable/bg_remote_pill" android:text="▶" android:textSize="11sp" />
+                        <TextView android:id="@+id/buttonPause" style="@style/RemoteKey" android:layout_width="0dp" android:layout_weight="1" android:layout_height="24dp" android:layout_marginStart="4dp" android:background="@drawable/bg_remote_pill" android:text="Ⅱ" android:textSize="11sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- app installate -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp">
+
+                    <TextView
+                        style="@style/Text.Hud.Eyebrow"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:text="app installate" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/buttonTvRefreshApps"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:text="AGGIORNA APP" />
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:scrollbars="none">
+
+                    <LinearLayout
+                        android:id="@+id/layoutTvApps"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp" />
+                </HorizontalScrollView>
+            </LinearLayout>
+
+            <!-- ============ PAGINA SMART SHARE ============ -->
+            <LinearLayout
+                android:id="@+id/pageSmartShare"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="8dp">
+
+                <Button
+                    android:id="@+id/buttonCastDiscover"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="CERCA TV IN RETE" />
+
+                <TextView
+                    android:id="@+id/textRenderers"
+                    style="@style/Text.Hud.Status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="nessuna ricerca effettuata" />
+
+                <EditText
+                    android:id="@+id/editCastFile"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="monospace"
+                    android:hint="nome file in media/"
+                    android:textColorHint="@color/text_faint"
+                    android:textColor="@color/text_primary"
+                    android:breakStrategy="simple"
+                    android:inputType="text" />
+
+                <Button
+                    android:id="@+id/buttonCastPlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="RIPRODUCI SU TV" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/textStatus"
+                style="@style/Text.Hud.Status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginTop="16dp"
+                android:text="[ log ]" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- selettore in basso stile TV Time -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/surface"
+        android:paddingTop="2dp">
+
+        <View android:layout_width="match_parent" android:layout_height="0.5dp" android:background="@color/line" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/surface"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <LinearLayout
+            android:id="@+id/tabRemote"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:id="@+id/tabRemoteLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.05"
+                android:text="TELECOMANDO"
+                android:textColor="@color/cyan"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/tabSmartShare"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:id="@+id/tabSmartShareLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.05"
+                android:text="SMART SHARE"
+                android:textColor="@color/text_faint"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

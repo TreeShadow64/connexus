@@ -1,0 +1,430 @@
+/* ============================================================
+   CONNEXUS HUB — sistema visivo HUD sci-fi
+   Palette e componenti pensati per essere riportati in seguito
+   anche sull'app telefono (stessa identita' visiva sui due lati).
+   ============================================================ */
+
+@font-face {
+    font-family: "Rajdhani";
+    font-weight: 500;
+    src: url("fonts/rajdhani-500.ttf") format("truetype");
+}
+@font-face {
+    font-family: "Rajdhani";
+    font-weight: 600;
+    src: url("fonts/rajdhani-600.ttf") format("truetype");
+}
+@font-face {
+    font-family: "Rajdhani";
+    font-weight: 700;
+    src: url("fonts/rajdhani-700.ttf") format("truetype");
+}
+@font-face {
+    font-family: "Share Tech Mono";
+    font-weight: 400;
+    src: url("fonts/sharetechmono.ttf") format("truetype");
+}
+
+:root {
+    --bg-void: #030608;
+    --bg-deep: #060d16;
+    --bg-panel: rgba(10, 22, 34, 0.72);
+    --bg-panel-raised: rgba(15, 30, 46, 0.85);
+
+    --cyan-glow: #6fe3ff;
+    --cyan: #2fb8e0;
+    --cyan-dim: #17607a;
+    --cyan-faint: rgba(111, 227, 255, 0.18);
+
+    --white: #eaf6fb;
+    --text-dim: #7fa3b3;
+    --text-faint: #3f5c6b;
+
+    --green: #3dffa0;
+    --amber: #ffc24b;
+    --red: #ff4d5e;
+
+    --font-hud: "Rajdhani", "Chakra Petch", "Segoe UI", sans-serif;
+    --font-mono: "Share Tech Mono", "Consolas", monospace;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+}
+
+body {
+    background: radial-gradient(ellipse at 50% 0%, #0a1826 0%, var(--bg-deep) 45%, var(--bg-void) 100%);
+    color: var(--white);
+    font-family: var(--font-hud);
+    overflow-x: hidden;
+    min-height: 100vh;
+    position: relative;
+}
+
+/* -------- griglia di sfondo -------- */
+.hud-grid-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(111, 227, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(111, 227, 255, 0.045) 1px, transparent 1px);
+    background-size: 42px 42px;
+    -webkit-mask-image: radial-gradient(ellipse at 50% 20%, #000 0%, transparent 75%);
+    mask-image: radial-gradient(ellipse at 50% 20%, #000 0%, transparent 75%);
+}
+
+.hud-scanline {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.012) 0px,
+        rgba(255, 255, 255, 0.012) 1px,
+        transparent 1px,
+        transparent 3px
+    );
+}
+
+/* -------- tipografia HUD -------- */
+.hud-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+}
+
+.hud-title {
+    font-family: var(--font-hud);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--white);
+}
+
+.hud-mono {
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+}
+
+.hud-value {
+    font-family: var(--font-mono);
+    color: var(--cyan-glow);
+    text-shadow: 0 0 10px rgba(111, 227, 255, 0.5);
+}
+
+/* -------- pannello con angoli tagliati -------- */
+.hud-panel {
+    position: relative;
+    background: var(--bg-panel);
+    border: 1px solid rgba(111, 227, 255, 0.28);
+    backdrop-filter: blur(6px);
+    clip-path: polygon(
+        14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%,
+        0 100%, 0 14px
+    );
+    padding: 18px 20px;
+}
+
+.hud-panel::before,
+.hud-panel::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+}
+
+.hud-panel::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid var(--cyan-glow);
+    border-left: 2px solid var(--cyan-glow);
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+    opacity: 0.9;
+}
+
+.hud-panel::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 2px solid var(--cyan-glow);
+    border-right: 2px solid var(--cyan-glow);
+    clip-path: polygon(100% 100%, 100% 0, 0 100%);
+    opacity: 0.9;
+}
+
+.hud-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(111, 227, 255, 0.16);
+}
+
+/* -------- indicatori di stato -------- */
+.hud-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    box-shadow: none;
+}
+
+.hud-dot.on {
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green), 0 0 2px var(--green);
+    animation: hud-pulse 2s ease-in-out infinite;
+}
+
+.hud-dot.warn {
+    background: var(--amber);
+    box-shadow: 0 0 8px var(--amber);
+}
+
+.hud-dot.off {
+    background: var(--red);
+    box-shadow: 0 0 6px var(--red);
+}
+
+@keyframes hud-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+}
+
+/* -------- bottoni -------- */
+.hud-button {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cyan-glow);
+    background: rgba(111, 227, 255, 0.06);
+    border: 1px solid rgba(111, 227, 255, 0.4);
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    padding: 9px 16px;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hud-button:hover {
+    background: rgba(111, 227, 255, 0.16);
+    box-shadow: 0 0 14px rgba(111, 227, 255, 0.25);
+}
+
+.hud-button:active {
+    background: rgba(111, 227, 255, 0.26);
+}
+
+.hud-button.danger {
+    color: var(--red);
+    border-color: rgba(255, 77, 94, 0.5);
+    background: rgba(255, 77, 94, 0.06);
+}
+
+.hud-button.danger:hover {
+    background: rgba(255, 77, 94, 0.16);
+    box-shadow: 0 0 14px rgba(255, 77, 94, 0.25);
+}
+
+.hud-button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* -------- anelli decorativi (SVG) -------- */
+.hud-ring-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hud-ring-spin {
+    animation: hud-spin 40s linear infinite;
+    transform-origin: center;
+}
+
+.hud-ring-spin-rev {
+    animation: hud-spin-rev 60s linear infinite;
+    transform-origin: center;
+}
+
+@keyframes hud-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes hud-spin-rev {
+    from { transform: rotate(360deg); }
+    to { transform: rotate(0deg); }
+}
+
+.hud-ring-center-label {
+    position: absolute;
+    text-align: center;
+}
+
+/* -------- layout shell -------- */
+.app-shell {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.app-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid rgba(111, 227, 255, 0.14);
+}
+
+.app-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+.app-nav {
+    width: 220px;
+    padding: 20px 12px;
+    border-right: 1px solid rgba(111, 227, 255, 0.14);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.app-nav-item {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 10px 14px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.app-nav-item:hover {
+    color: var(--white);
+    background: rgba(111, 227, 255, 0.05);
+}
+
+.app-nav-item.active {
+    color: var(--cyan-glow);
+    border-left-color: var(--cyan-glow);
+    background: rgba(111, 227, 255, 0.08);
+}
+
+.app-main {
+    flex: 1;
+    padding: 26px 32px;
+    overflow-y: auto;
+}
+
+.hud-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.hud-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.stat-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 12px;
+}
+
+.stat-label {
+    font-family: var(--font-mono);
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-size: 10px;
+}
+
+/* -------- righe (liste: condivisioni, dispositivi...) -------- */
+.hud-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: var(--bg-panel);
+    border: 1px solid rgba(111, 227, 255, 0.22);
+    border-left: 2px solid var(--cyan-glow);
+    padding: 14px 18px;
+    margin-bottom: 10px;
+}
+
+.hud-row-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.hud-row-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.hud-row-name {
+    font-family: var(--font-hud);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--white);
+    cursor: pointer;
+}
+
+.hud-row-name:hover {
+    color: var(--cyan-glow);
+}
+
+.hud-row-detail {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 3px;
+}
+
+.hud-row-detail a {
+    color: var(--cyan-glow);
+    text-decoration: none;
+}
+
+.hud-row-detail a:hover {
+    text-decoration: underline;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(111, 227, 255, 0.25);
+}

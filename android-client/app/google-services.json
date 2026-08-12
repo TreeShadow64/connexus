@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "559590766382",
+    "project_id": "home-connexus",
+    "storage_bucket": "home-connexus.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:559590766382:android:d42d63f8e3afbbae8decbf",
+        "android_client_info": {
+          "package_name": "com.hubpc.client"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "559590766382-dggapnpnltdpf3h1dgdvo8a8p4oa95vn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.hubpc.client",
+            "certificate_hash": "4efca2aed47900fc064457caf95e6ea6ba1e148c"
+          }
+        },
+        {
+          "client_id": "559590766382-8h566ggo5gtsnm1a9ci94bl4t5m2meg6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAAUldk_FeffLZQ_pXBGKeStdmIPB7vu5E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "559590766382-8h566ggo5gtsnm1a9ci94bl4t5m2meg6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

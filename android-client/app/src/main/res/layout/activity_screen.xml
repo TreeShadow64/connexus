@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <ImageView
+        android:id="@+id/imageScreen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="Schermo del PC"
+        android:scaleType="matrix" />
+
+    <TextView
+        android:id="@+id/textScreenStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:fontFamily="monospace"
+        android:text="[ in attesa ]"
+        android:textColor="#00E5FF"
+        android:textSize="14sp" />
+
+    <ImageView
+        android:id="@+id/buttonAcceptUac"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="14dp"
+        android:padding="6dp"
+        android:background="@drawable/bg_icon_button"
+        android:alpha="0.85"
+        android:clickable="true"
+        android:focusable="true"
+        android:contentDescription="Accetta UAC"
+        android:src="@drawable/ic_lock_open"
+        app:tint="@color/cyan" />
+
+</FrameLayout>

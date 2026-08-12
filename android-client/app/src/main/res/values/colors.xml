@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#EEF2F6</color>
+    <color name="bg_deep">#E2E8EE</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_raised">#F5F8FB</color>
+    <color name="line">#D3DDE5</color>
+    <color name="line_strong">#B7C6D1</color>
+
+    <color name="cyan">#0092B8</color>
+    <color name="cyan_dim">#0AA8C4</color>
+    <color name="magenta">#D6207A</color>
+    <color name="green">#1FA34C</color>
+    <color name="red">#D6322C</color>
+    <color name="amber">#C97F00</color>
+
+    <color name="text_primary">#0C1B26</color>
+    <color name="text_dim">#4C6172</color>
+    <color name="text_faint">#94A7B4</color>
+</resources>

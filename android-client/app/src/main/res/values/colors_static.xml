@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colori indipendenti dal tema chiaro/scuro: icona app e telecomando fisico
+         (un telecomando reale non cambia colore col tema del telefono). -->
+    <color name="ic_launcher_background">#070B12</color>
+
+    <color name="remote_bg_top">#1C2128</color>
+    <color name="remote_bg_bottom">#14171C</color>
+    <color name="remote_border">#2A3038</color>
+    <color name="remote_btn_bg">#23282F</color>
+    <color name="remote_btn_border">#323944</color>
+    <color name="remote_btn_text">#CFD8E0</color>
+    <color name="remote_dim_text">#6B7480</color>
+    <color name="remote_caption_text">#4A525C</color>
+    <color name="remote_red">#B8352F</color>
+    <color name="remote_green">#2F8A4A</color>
+    <color name="remote_yellow">#C9A227</color>
+    <color name="remote_blue">#2C6DB0</color>
+    <color name="remote_wheel_start">#3D444D</color>
+    <color name="remote_wheel_end">#1A1E23</color>
+    <color name="remote_wheel_border">#4D5762</color>
+    <color name="remote_nub_top">#4A525C</color>
+    <color name="remote_nub_bottom">#262B31</color>
+    <color name="remote_tick">#6B7480</color>
+</resources>

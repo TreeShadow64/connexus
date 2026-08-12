@@ -1,0 +1,16 @@
+{
+  "name": "connexus-relay",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "secrets": "echo \"Usa: npx wrangler secret put SERVICE_ACCOUNT_EMAIL   e   npx wrangler secret put SERVICE_ACCOUNT_PRIVATE_KEY\""
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

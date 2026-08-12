@@ -1,0 +1,12 @@
+name = "connexus-relay"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+FIREBASE_PROJECT_ID = "home-connexus"
+
+# Segreti (MAI in questo file): impostali con
+#   npx wrangler secret put SERVICE_ACCOUNT_EMAIL
+#   npx wrangler secret put SERVICE_ACCOUNT_PRIVATE_KEY
+# Sono la stessa chiave di servizio generata per il PC in precedenza — qui
+# pero' resta solo su questa infrastruttura gestita, mai su un PC di nessuno.

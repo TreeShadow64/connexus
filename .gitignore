@@ -1,0 +1,28 @@
+# Segreti e stato locale generato — mai da committare
+pc-server/firebase-service-account.json
+pc-server/account_config.json
+pc-server/auth_config.json
+pc-server/device_id.json
+pc-server/webos_config.json
+pc-server/parsec_config.json
+pc-server/media/
+pc-server/__pycache__/
+pc-server/build/
+pc-server/dist/
+pc-server/*.spec
+
+# Android build
+android-client/.gradle/
+android-client/.idea/
+android-client/local.properties
+android-client/app/build/
+android-client/build/
+*.apk
+*.jks
+*.keystore
+
+# Cloudflare Worker (ha gia' il proprio .gitignore per node_modules/.wrangler/.dev.vars/.cf_token)
+
+# Editor/OS
+.DS_Store
+Thumbs.db
