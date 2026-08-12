@@ -13,6 +13,12 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.cast.MediaInfo
+import com.google.android.gms.cast.MediaLoadRequestData
+import com.google.android.gms.cast.framework.CastButtonFactory
+import com.google.android.gms.cast.framework.CastContext
+import com.google.android.gms.cast.framework.CastSession
+import com.google.android.gms.cast.framework.SessionManagerListener
 import com.hubpc.client.databinding.ActivityTvRemoteBinding
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -41,6 +47,19 @@ class TvRemoteActivity : AppCompatActivity() {
     private var rendererNames: List<String> = emptyList()
     private var selectedRendererIndex = 0
 
+    private var castSession: CastSession? = null
+    private val castSessionListener = object : SessionManagerListener<CastSession> {
+        override fun onSessionStarted(session: CastSession, sessionId: String) = onCastConnected(session)
+        override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) = onCastConnected(session)
+        override fun onSessionEnded(session: CastSession, error: Int) = onCastDisconnected()
+        override fun onSessionSuspended(session: CastSession, reason: Int) = onCastDisconnected()
+        override fun onSessionStarting(session: CastSession) {}
+        override fun onSessionStartFailed(session: CastSession, error: Int) {}
+        override fun onSessionEnding(session: CastSession) {}
+        override fun onSessionResuming(session: CastSession, sessionId: String) {}
+        override fun onSessionResumeFailed(session: CastSession, error: Int) {}
+    }
+
     private val pickGalleryFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) uploadAndCast(uri)
     }
@@ -59,6 +78,7 @@ class TvRemoteActivity : AppCompatActivity() {
         wireRemoteButtons()
         wireSmartShare()
         wireTabs()
+        setUpGoogleCast()
 
         binding.buttonTvPair.setOnClickListener {
             sendCommand(JSONObject().put("type", "tv_pair"))
@@ -99,9 +119,11 @@ class TvRemoteActivity : AppCompatActivity() {
             } else {
                 HelpDialogs.show(
                     this, "Smart share",
-                    "CERCA TV IN RETE: trova le TV/renderer DLNA raggiungibili sulla stessa rete Wi-Fi del PC (funziona con LG e la maggior parte delle TV; i Samsung recenti hanno tolto il supporto DLNA). " +
+                    "L'icona di Google Cast in alto ti fa scegliere una TV moderna (funziona sui Samsung 2024+, LG, Chromecast — lo standard attuale). " +
+                        "Se e' connessa, viene usata automaticamente al posto del DLNA.\n\n" +
+                        "CERCA TV IN RETE trova invece le TV/renderer DLNA sulla stessa rete (LG webOS e la maggior parte delle TV piu' datate; i Samsung recenti hanno tolto il supporto DLNA). " +
                         "Tocca una TV nell'elenco per selezionarla.\n\n" +
-                        "SCEGLI DA GALLERIA carica una foto/video dal telefono al PC e lo manda subito in riproduzione. " +
+                        "SCEGLI DA GALLERIA carica una foto/video dal telefono al PC e lo manda subito in riproduzione, sulla TV Cast connessa o su quella DLNA selezionata. " +
                         "In alternativa scrivi il nome di un file gia' presente in media/ sul PC."
                 )
             }
@@ -172,16 +194,72 @@ class TvRemoteActivity : AppCompatActivity() {
         binding.buttonCastPlay.setOnClickListener {
             val file = binding.editCastFile.text.toString().trim()
             if (file.isNotEmpty()) {
-                sendCommand(JSONObject().put("type", "cast_play").put("file", file).put("renderer_index", selectedRendererIndex))
-                log("Inviato: riproduci $file")
+                val mime = java.net.URLConnection.guessContentTypeFromName(file) ?: "video/mp4"
+                castToTv(file, mime)
             }
         }
         binding.buttonCastPickFile.setOnClickListener { pickGalleryFile.launch("*/*") }
         binding.buttonCastPause.setOnClickListener {
-            sendCommand(JSONObject().put("type", "cast_pause").put("renderer_index", selectedRendererIndex))
+            val session = castSession
+            if (session != null) {
+                session.remoteMediaClient?.pause()
+                log("Google Cast: in pausa")
+            } else {
+                sendCommand(JSONObject().put("type", "cast_pause").put("renderer_index", selectedRendererIndex))
+            }
         }
         binding.buttonCastStop.setOnClickListener {
-            sendCommand(JSONObject().put("type", "cast_stop").put("renderer_index", selectedRendererIndex))
+            val session = castSession
+            if (session != null) {
+                session.remoteMediaClient?.stop()
+                log("Google Cast: fermato")
+            } else {
+                sendCommand(JSONObject().put("type", "cast_stop").put("renderer_index", selectedRendererIndex))
+            }
+        }
+    }
+
+    private fun setUpGoogleCast() {
+        try {
+            CastButtonFactory.setUpMediaRouteButton(applicationContext, binding.mediaRouteButton)
+            val castContext = CastContext.getSharedInstance(this)
+            castContext.sessionManager.addSessionManagerListener(castSessionListener, CastSession::class.java)
+            castSession = castContext.sessionManager.currentCastSession
+            if (castSession?.isConnected == true) onCastConnected(castSession!!)
+        } catch (e: Exception) {
+            // Play Services / Google Cast non disponibile su questo dispositivo:
+            // Smart Share resta comunque utilizzabile via DLNA.
+            binding.textCastStatus.text = "Google Cast non disponibile su questo dispositivo"
+            binding.mediaRouteButton.visibility = android.view.View.GONE
+        }
+    }
+
+    private fun onCastConnected(session: CastSession) {
+        castSession = session
+        binding.textCastStatus.text = "Google Cast: connesso a ${session.castDevice?.friendlyName ?: "TV"}"
+    }
+
+    private fun onCastDisconnected() {
+        castSession = null
+        binding.textCastStatus.text = "Google Cast: non connesso"
+    }
+
+    /** Manda un file in riproduzione sulla TV: se e' attiva una sessione
+     * Google Cast la usa (standard moderno, funziona anche sui Samsung
+     * recenti), altrimenti ricade sulla TV DLNA selezionata sotto. */
+    private fun castToTv(filename: String, mimeType: String) {
+        val session = castSession
+        if (session != null) {
+            val mediaUrl = "http://$pcIp:8766/${Uri.encode(filename)}"
+            val mediaInfo = MediaInfo.Builder(mediaUrl)
+                .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+                .setContentType(mimeType)
+                .build()
+            session.remoteMediaClient?.load(MediaLoadRequestData.Builder().setMediaInfo(mediaInfo).build())
+            log("Google Cast: riproduzione di $filename")
+        } else {
+            sendCommand(JSONObject().put("type", "cast_play").put("file", filename).put("renderer_index", selectedRendererIndex))
+            log("DLNA: inviato $filename")
         }
     }
 
@@ -228,8 +306,8 @@ class TvRemoteActivity : AppCompatActivity() {
                     tempFile.outputStream().use { output -> input.copyTo(output) }
                 } ?: throw java.io.IOException("Impossibile leggere il file scelto")
 
-                val mediaType = contentResolver.getType(uri)?.toMediaTypeOrNull()
-                val body = tempFile.asRequestBody(mediaType)
+                val contentType = contentResolver.getType(uri)
+                val body = tempFile.asRequestBody(contentType?.toMediaTypeOrNull())
                 val encodedName = Uri.encode(filename)
                 val request = Request.Builder()
                     .url("http://$pcIp:8766/cast-upload/$encodedName?token=$pcToken")
@@ -241,7 +319,7 @@ class TvRemoteActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     log("Caricato, avvio riproduzione...")
-                    sendCommand(JSONObject().put("type", "cast_play").put("file", filename).put("renderer_index", selectedRendererIndex))
+                    castToTv(filename, contentType ?: "video/mp4")
                 }
             } catch (e: Exception) {
                 runOnUiThread { log("Caricamento fallito: ${e.message}") }
@@ -422,6 +500,12 @@ class TvRemoteActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         webSocket?.close(1000, "Chiuso")
+        try {
+            CastContext.getSharedInstance(this).sessionManager
+                .removeSessionManagerListener(castSessionListener, CastSession::class.java)
+        } catch (e: Exception) {
+            // Google Cast non era disponibile: niente da rimuovere
+        }
         super.onDestroy()
     }
 }
