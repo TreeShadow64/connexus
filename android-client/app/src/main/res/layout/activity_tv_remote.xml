@@ -423,20 +423,33 @@
                     android:text="CERCA TV IN RETE" />
 
                 <TextView
-                    android:id="@+id/textRenderers"
                     style="@style/Text.Hud.Status"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="nessuna ricerca effettuata" />
+                    android:text="TV trovate (tocca per scegliere):" />
+
+                <LinearLayout
+                    android:id="@+id/layoutRenderers"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="4dp" />
+
+                <Button
+                    android:id="@+id/buttonCastPickFile"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="SCEGLI DA GALLERIA E RIPRODUCI" />
 
                 <EditText
                     android:id="@+id/editCastFile"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="12dp"
                     android:fontFamily="monospace"
-                    android:hint="nome file in media/"
+                    android:hint="oppure nome file gia' in media/"
                     android:textColorHint="@color/text_faint"
                     android:textColor="@color/text_primary"
                     android:breakStrategy="simple"
@@ -448,6 +461,28 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="RIPRODUCI SU TV" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+
+                    <Button
+                        android:id="@+id/buttonCastPause"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="PAUSA" />
+
+                    <Button
+                        android:id="@+id/buttonCastStop"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="STOP" />
+                </LinearLayout>
             </LinearLayout>
 
             <TextView

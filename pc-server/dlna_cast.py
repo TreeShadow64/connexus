@@ -139,6 +139,16 @@ def play(control_url):
     return _soap_request(control_url, "Play", body)
 
 
+def pause(control_url):
+    body = f'<u:Pause xmlns:u="{AVT_NS}"><InstanceID>0</InstanceID></u:Pause>'
+    return _soap_request(control_url, "Pause", body)
+
+
+def stop(control_url):
+    body = f'<u:Stop xmlns:u="{AVT_NS}"><InstanceID>0</InstanceID></u:Stop>'
+    return _soap_request(control_url, "Stop", body)
+
+
 def get_transport_info(control_url):
     body = (
         f'<u:GetTransportInfo xmlns:u="{AVT_NS}">'

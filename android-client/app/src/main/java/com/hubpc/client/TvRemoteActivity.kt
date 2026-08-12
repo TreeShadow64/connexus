@@ -1,22 +1,30 @@
 package com.hubpc.client
 
 import android.graphics.BitmapFactory
+import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
+import android.view.Gravity
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.hubpc.client.databinding.ActivityTvRemoteBinding
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 /** Telecomando TV (replica fedele del LG Magic Remote) e Smart Share riuniti
  * in un'unica schermata, con selettore in basso per passare dall'uno all'altro. */
@@ -28,6 +36,14 @@ class TvRemoteActivity : AppCompatActivity() {
     private var authenticated = false
     private var lastInputs: JSONArray? = null
     private var onRemoteTab = true
+    private var pcIp = ""
+    private var pcToken = ""
+    private var rendererNames: List<String> = emptyList()
+    private var selectedRendererIndex = 0
+
+    private val pickGalleryFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) uploadAndCast(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,6 +52,8 @@ class TvRemoteActivity : AppCompatActivity() {
 
         val ip = intent.getStringExtra("ip").orEmpty()
         val token = intent.getStringExtra("token").orEmpty()
+        pcIp = ip
+        pcToken = token
 
         wireHelp()
         wireRemoteButtons()
@@ -81,8 +99,10 @@ class TvRemoteActivity : AppCompatActivity() {
             } else {
                 HelpDialogs.show(
                     this, "Smart share",
-                    "CERCA TV IN RETE: trova le TV/renderer DLNA raggiungibili sulla stessa rete Wi-Fi del PC. " +
-                        "Scrivi il nome di un file presente nella cartella media/ del PC e premi RIPRODUCI SU TV per mandarlo in riproduzione sulla prima TV trovata."
+                    "CERCA TV IN RETE: trova le TV/renderer DLNA raggiungibili sulla stessa rete Wi-Fi del PC (funziona con LG e la maggior parte delle TV; i Samsung recenti hanno tolto il supporto DLNA). " +
+                        "Tocca una TV nell'elenco per selezionarla.\n\n" +
+                        "SCEGLI DA GALLERIA carica una foto/video dal telefono al PC e lo manda subito in riproduzione. " +
+                        "In alternativa scrivi il nome di un file gia' presente in media/ sul PC."
                 )
             }
         }
@@ -152,10 +172,89 @@ class TvRemoteActivity : AppCompatActivity() {
         binding.buttonCastPlay.setOnClickListener {
             val file = binding.editCastFile.text.toString().trim()
             if (file.isNotEmpty()) {
-                sendCommand(JSONObject().put("type", "cast_play").put("file", file).put("renderer_index", 0))
+                sendCommand(JSONObject().put("type", "cast_play").put("file", file).put("renderer_index", selectedRendererIndex))
                 log("Inviato: riproduci $file")
             }
         }
+        binding.buttonCastPickFile.setOnClickListener { pickGalleryFile.launch("*/*") }
+        binding.buttonCastPause.setOnClickListener {
+            sendCommand(JSONObject().put("type", "cast_pause").put("renderer_index", selectedRendererIndex))
+        }
+        binding.buttonCastStop.setOnClickListener {
+            sendCommand(JSONObject().put("type", "cast_stop").put("renderer_index", selectedRendererIndex))
+        }
+    }
+
+    private fun renderRenderers() {
+        binding.layoutRenderers.removeAllViews()
+        if (rendererNames.isEmpty()) {
+            binding.layoutRenderers.addView(TextView(this).apply {
+                text = "nessuna TV trovata"
+                setTextColor(getColor(R.color.text_faint))
+                typeface = Typeface.MONOSPACE
+                textSize = 11f
+            })
+            return
+        }
+        for ((index, name) in rendererNames.withIndex()) {
+            binding.layoutRenderers.addView(TextView(this).apply {
+                text = if (index == selectedRendererIndex) "● $name" else "○ $name"
+                setTextColor(getColor(if (index == selectedRendererIndex) R.color.cyan else R.color.text_dim))
+                typeface = Typeface.MONOSPACE
+                textSize = 12f
+                setPadding(4, 10, 4, 10)
+                setOnClickListener {
+                    selectedRendererIndex = index
+                    renderRenderers()
+                }
+            })
+        }
+    }
+
+    /** Carica il file scelto dalla galleria sul PC (endpoint /cast-upload/)
+     * cosi' non serve che sia gia' presente in media/, poi lo manda in
+     * riproduzione sulla TV selezionata. */
+    private fun uploadAndCast(uri: Uri) {
+        if (pcIp.isEmpty() || pcToken.isEmpty()) {
+            log("Non connesso al PC")
+            return
+        }
+        val filename = queryFileName(uri) ?: "condiviso_${System.currentTimeMillis()}"
+        log("Caricamento di $filename sul PC...")
+        Thread {
+            try {
+                val tempFile = File(cacheDir, filename)
+                contentResolver.openInputStream(uri)?.use { input ->
+                    tempFile.outputStream().use { output -> input.copyTo(output) }
+                } ?: throw java.io.IOException("Impossibile leggere il file scelto")
+
+                val mediaType = contentResolver.getType(uri)?.toMediaTypeOrNull()
+                val body = tempFile.asRequestBody(mediaType)
+                val encodedName = Uri.encode(filename)
+                val request = Request.Builder()
+                    .url("http://$pcIp:8766/cast-upload/$encodedName?token=$pcToken")
+                    .put(body)
+                    .build()
+                val response = httpClient.newCall(request).execute()
+                tempFile.delete()
+                if (!response.isSuccessful) throw java.io.IOException("HTTP ${response.code}")
+
+                runOnUiThread {
+                    log("Caricato, avvio riproduzione...")
+                    sendCommand(JSONObject().put("type", "cast_play").put("file", filename).put("renderer_index", selectedRendererIndex))
+                }
+            } catch (e: Exception) {
+                runOnUiThread { log("Caricamento fallito: ${e.message}") }
+            }
+        }.start()
+    }
+
+    private fun queryFileName(uri: Uri): String? {
+        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (nameIndex >= 0 && cursor.moveToFirst()) return cursor.getString(nameIndex)
+        }
+        return null
     }
 
     private fun requestInputs() {
@@ -307,12 +406,10 @@ class TvRemoteActivity : AppCompatActivity() {
             }
             "cast_discover_result" -> {
                 val renderers = json.optJSONArray("renderers")
-                if (renderers == null || renderers.length() == 0) {
-                    binding.textRenderers.text = "nessuna TV trovata"
-                } else {
-                    val names = (0 until renderers.length()).joinToString(", ") { renderers.getString(it) }
-                    binding.textRenderers.text = names
-                }
+                rendererNames = if (renderers == null) emptyList()
+                    else (0 until renderers.length()).map { renderers.getString(it) }
+                selectedRendererIndex = 0
+                renderRenderers()
             }
             "cast_ok" -> log(json.optString("message"))
             "cast_error" -> log("Errore: ${json.optString("message")}")

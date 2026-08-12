@@ -181,6 +181,10 @@ def handle_command(data, conn_key=None, peer_ip=None):
         return cast_discover()
     elif cmd == "cast_play":
         return cast_play(data.get("file", ""), data.get("renderer_index", 0))
+    elif cmd == "cast_pause":
+        return cast_transport("pause", data.get("renderer_index", 0))
+    elif cmd == "cast_stop":
+        return cast_transport("stop", data.get("renderer_index", 0))
     elif cmd == "service_status":
         installed = service_client.is_installed()
         return {
@@ -448,6 +452,18 @@ def cast_play(filename, renderer_index):
         return {"type": "cast_error", "message": f"Comando inviato ma stato TV: {state}"}
 
 
+def cast_transport(action, renderer_index):
+    if renderer_index >= len(last_renderers):
+        return {"type": "cast_error", "message": "Nessun TV trovata, premi prima CERCA TV"}
+    renderer = last_renderers[renderer_index]
+    try:
+        (dlna_cast.pause if action == "pause" else dlna_cast.stop)(renderer["control_url"])
+    except Exception as e:
+        log.warning(f"{action} DLNA fallito: {e}")
+        return {"type": "cast_error", "message": f"Comando non riuscito su {renderer['name']}"}
+    return {"type": "cast_ok", "message": f"{'In pausa' if action == 'pause' else 'Fermato'} su {renderer['name']}"}
+
+
 def _token_from_path(path):
     return parse_qs(urlparse(path).query).get("token", [None])[0]
 
@@ -466,6 +482,48 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
             self._serve_download()
             return
         super().do_GET()
+
+    def do_PUT(self):
+        if self.path.startswith("/cast-upload/"):
+            self._receive_cast_upload()
+            return
+        self.send_error(405, "Metodo non supportato")
+
+    def _receive_cast_upload(self):
+        """Riceve un file scelto dalla galleria del telefono e lo salva in
+        media/, cosi' 'Smart Share' puo' castarlo senza che debba gia'
+        trovarsi sul PC in anticipo. Solo il nome del file (niente
+        sottocartelle) per evitare di scrivere fuori da media/."""
+        query = parse_qs(urlparse(self.path).query)
+        token = query.get("token", [None])[0]
+        if not auth.is_valid(token):
+            self.send_error(401, "Token mancante o non valido")
+            return
+
+        filename = Path(urlparse(self.path).path[len("/cast-upload/"):]).name
+        if not filename:
+            self.send_error(400, "Nome file mancante")
+            return
+
+        length = int(self.headers.get("Content-Length", 0))
+        dest = MEDIA_DIR / filename
+        try:
+            with open(dest, "wb") as f:
+                remaining = length
+                while remaining > 0:
+                    chunk = self.rfile.read(min(1024 * 256, remaining))
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    remaining -= len(chunk)
+        except OSError as e:
+            self.send_error(500, str(e))
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        log.info(f"Smart share: caricato {filename} ({length} byte) in media/")
 
     def _serve_download(self):
         query = parse_qs(urlparse(self.path).query)
