@@ -7,13 +7,15 @@ codice da mantenere di un canale push dedicato).
 Ascolta solo su 127.0.0.1: e' un pannello di amministrazione senza login,
 non deve essere raggiungibile dalla rete locale ne' da fuori casa.
 """
-import io
 import json
 import logging
 import threading
+import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import file_browser
 import ftp_client
 from paths import bundle_dir
 
@@ -21,9 +23,26 @@ log = logging.getLogger("hub-server")
 
 DASHBOARD_DIR = bundle_dir() / "dashboard"
 DASHBOARD_PORT = 8771
+TRANSFER_LOG_MAX = 200
 
 _status_provider = None
 _action_handler = None
+
+# Solo in memoria: e' un'attivita' recente, non un registro permanente, e vive
+# comunque solo su questo PC (dashboard locale, non sincronizzata altrove).
+transfer_log = []
+
+
+def _record_transfer(direction, filename, share_name, ok, error=None):
+    transfer_log.append({
+        "timestamp": time.time(),
+        "direction": direction,  # "download" (dal telefono al PC) o "upload" (dal PC al telefono)
+        "filename": filename,
+        "share": share_name,
+        "ok": ok,
+        "error": error,
+    })
+    del transfer_log[:-TRANSFER_LOG_MAX]
 
 
 def _send_json(handler, obj, status=200):
@@ -59,18 +78,33 @@ def start(status_provider, action_handler):
             if self.path.startswith("/ftp/list"):
                 self._ftp_list()
                 return
-            if self.path.startswith("/ftp/download"):
-                self._ftp_download()
+            if self.path.startswith("/ftp/activity"):
+                _send_json(self, {"ok": True, "entries": list(reversed(transfer_log))})
+                return
+            if self.path.startswith("/local/list"):
+                self._local_list()
                 return
             super().do_GET()
 
         def do_POST(self):
-            if self.path != "/action":
-                self.send_error(404)
+            if self.path == "/action":
+                self._handle_action()
                 return
+            if self.path == "/local/upload-to-remote":
+                self._upload_to_remote()
+                return
+            if self.path == "/local/download-from-remote":
+                self._download_from_remote()
+                return
+            self.send_error(404)
+
+        def _json_body(self):
             length = int(self.headers.get("Content-Length", 0))
+            return json.loads(self.rfile.read(length) or b"{}")
+
+        def _handle_action(self):
             try:
-                body = json.loads(self.rfile.read(length) or b"{}")
+                body = self._json_body()
             except json.JSONDecodeError:
                 _send_json(self, {"ok": False, "error": "corpo non valido"}, status=400)
                 return
@@ -83,12 +117,6 @@ def start(status_provider, action_handler):
                 _send_json(self, {"ok": False, "error": str(e)}, status=500)
                 return
             _send_json(self, result)
-
-        def do_PUT(self):
-            if self.path.startswith("/ftp/upload"):
-                self._ftp_upload()
-                return
-            self.send_error(405, "Metodo non supportato")
 
         def _ftp_params(self):
             query = parse_qs(urlparse(self.path).query)
@@ -107,33 +135,51 @@ def start(status_provider, action_handler):
             except Exception as e:
                 _send_json(self, {"ok": False, "error": str(e)}, status=502)
 
-        def _ftp_download(self):
-            p = self._ftp_params()
-            filename = p["path"].rsplit("/", 1)[-1] or "file"
-            buffer = io.BytesIO()
+        def _local_list(self):
+            query = parse_qs(urlparse(self.path).query)
+            path = query.get("path", [""])[0]
             try:
-                ftp_client.download_to_stream(p["host"], p["port"], p["password"], p["path"], buffer)
-            except Exception as e:
-                self.send_error(502, str(e))
-                return
-            data = buffer.getvalue()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/octet-stream")
-            self.send_header("Content-Length", str(len(data)))
-            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
-            self.end_headers()
-            self.wfile.write(data)
+                entries = file_browser.list_directory(path)
+                _send_json(self, {"ok": True, "entries": entries, "parent": file_browser.parent_of(path)})
+            except file_browser.FileBrowserError as e:
+                _send_json(self, {"ok": False, "error": str(e)}, status=400)
 
-        def _ftp_upload(self):
-            p = self._ftp_params()
-            length = int(self.headers.get("Content-Length", 0))
-            buffer = io.BytesIO(self.rfile.read(length))
+        def _upload_to_remote(self):
+            """Pannello FileZilla: carica un file gia' presente sul PC verso
+            la condivisione del telefono, senza passare dal browser (il
+            dashboard gira gia' sul PC, il file e' gia' li')."""
+            body = None
             try:
-                ftp_client.upload_from_stream(p["host"], p["port"], p["password"], p["path"], buffer)
+                body = self._json_body()
+                local_path = Path(body["local_path"])
+                filename = local_path.name
+                remote_dir = body.get("remote_path", "")
+                remote_target = f"{remote_dir}/{filename}" if remote_dir else filename
+                with open(local_path, "rb") as f:
+                    ftp_client.upload_from_stream(body["ip"], int(body["port"]), body["password"], remote_target, f)
+                _record_transfer("upload", filename, body.get("share_name", "?"), True)
+                _send_json(self, {"ok": True})
             except Exception as e:
+                _record_transfer("upload", (body or {}).get("local_path", "?"), "?", False, str(e))
                 _send_json(self, {"ok": False, "error": str(e)}, status=502)
-                return
-            _send_json(self, {"ok": True})
+
+        def _download_from_remote(self):
+            """Pannello FileZilla: scarica un file dalla condivisione del
+            telefono direttamente nella cartella locale scelta nel pannello
+            di sinistra, senza passare dal download del browser."""
+            body = None
+            try:
+                body = self._json_body()
+                remote_path = body["remote_path"]
+                filename = remote_path.rsplit("/", 1)[-1]
+                dest = Path(body["local_dir"]) / filename
+                with open(dest, "wb") as f:
+                    ftp_client.download_to_stream(body["ip"], int(body["port"]), body["password"], remote_path, f)
+                _record_transfer("download", filename, body.get("share_name", "?"), True)
+                _send_json(self, {"ok": True})
+            except Exception as e:
+                _record_transfer("download", (body or {}).get("remote_path", "?"), "?", False, str(e))
+                _send_json(self, {"ok": False, "error": str(e)}, status=502)
 
     server = ThreadingHTTPServer(("127.0.0.1", DASHBOARD_PORT), DashboardHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)

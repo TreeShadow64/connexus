@@ -12,8 +12,8 @@ android {
         applicationId = "com.hubpc.client"
         minSdk = 24
         targetSdk = 34
-        versionCode = 29
-        versionName = "0.29"
+        versionCode = 30
+        versionName = "0.30"
     }
 
     buildTypes {

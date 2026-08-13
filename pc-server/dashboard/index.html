@@ -79,25 +79,38 @@
             </section>
 
             <section class="view" id="view-rete" hidden>
-                <div class="hud-eyebrow" style="margin-bottom:10px;">condivisioni attive in questo momento</div>
-                <div id="shareRows"><!-- popolate via JS --></div>
-            </section>
-
-            <div class="ftp-modal-backdrop" id="ftpModalBackdrop" hidden>
-                <div class="ftp-modal">
-                    <div class="ftp-modal-header">
-                        <span class="hud-eyebrow" id="ftpModalTitle">condivisione</span>
-                        <span class="ftp-close" onclick="closeFtpBrowser()">&times;</span>
-                    </div>
-                    <div class="ftp-modal-path" id="ftpModalPath">/</div>
-                    <div class="ftp-modal-body" id="ftpModalEntries"><!-- popolate via JS --></div>
-                    <div class="ftp-modal-footer">
-                        <input type="file" id="ftpUploadInput" style="display:none;" onchange="onFtpUploadSelected(event)" />
-                        <button class="hud-button" onclick="document.getElementById('ftpUploadInput').click()">CARICA FILE QUI</button>
-                        <span class="hud-mono" id="ftpModalStatus" style="font-size:11px; color:var(--text-dim);"></span>
-                    </div>
+                <div class="hud-subnav">
+                    <div class="hud-subnav-item active" data-subview="attivita">Attività trasferimenti</div>
+                    <div class="hud-subnav-item" data-subview="filezilla">FileZilla</div>
                 </div>
-            </div>
+
+                <div class="subview" id="subview-attivita">
+                    <div class="hud-eyebrow" style="margin-bottom:10px;">file ricevuti e mandati — visibile solo tra i dispositivi di questo account</div>
+                    <div id="transferLog"><!-- popolate via JS --></div>
+                </div>
+
+                <div class="subview" id="subview-filezilla" hidden>
+                    <div class="fz-toolbar">
+                        <select id="fzShareSelect" onchange="fzOnShareSelected()">
+                            <option value="">— scegli una condivisione —</option>
+                        </select>
+                        <button class="hud-button" onclick="fzRefreshShares()">AGGIORNA CONDIVISIONI</button>
+                    </div>
+                    <div class="fz-panes">
+                        <div class="fz-pane">
+                            <div class="fz-pane-header">LOCALE — questo PC</div>
+                            <div class="fz-pane-path" id="fzLocalPath">/</div>
+                            <div class="fz-pane-body" id="fzLocalEntries"><!-- popolate via JS --></div>
+                        </div>
+                        <div class="fz-pane">
+                            <div class="fz-pane-header">REMOTO — condivisione telefono</div>
+                            <div class="fz-pane-path" id="fzRemotePath">nessuna condivisione selezionata</div>
+                            <div class="fz-pane-body" id="fzRemoteEntries"><!-- popolate via JS --></div>
+                        </div>
+                    </div>
+                    <div class="fz-status" id="fzStatus"></div>
+                </div>
+            </section>
 
             <section class="view" id="view-sistema" hidden>
                 <div class="hud-grid-2" id="sistemaCards"><!-- popolate via JS --></div>

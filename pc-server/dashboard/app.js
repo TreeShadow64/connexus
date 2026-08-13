@@ -40,6 +40,7 @@ function switchView(name) {
         clearInterval(devicesPollHandle);
         devicesPollHandle = null;
     }
+    if (name === "rete") showReteSubview(currentReteSubview);
 }
 
 document.querySelectorAll(".app-nav-item").forEach(el => {
@@ -123,81 +124,28 @@ function renderTopbar(status) {
 
 // ---------- file & rete ----------
 
-function renderReteView(status) {
-    const container = document.getElementById("shareRows");
-    if (status.shares.length === 0) {
-        container.innerHTML = `<div class="hud-panel hud-mono" style="color:var(--text-dim); font-size:12px;">nessuna condivisione attiva al momento</div>`;
-        return;
-    }
-    container.innerHTML = status.shares.map(share => `
-        <div class="hud-row">
-            <div class="hud-row-main">
-                <div class="hud-row-name" onclick='openFtpBrowser(${JSON.stringify(share)})'>${share.name || "dispositivo"}</div>
-                <div class="hud-row-detail">"${share.folder || "?"}" — ftp://${share.ip}:${share.ftp_port} (tocca il nome per sfogliare)</div>
-            </div>
-            <span class="hud-dot on"></span>
-        </div>
-    `).join("");
-}
+let currentReteSubview = "attivita";
+let fzLocalPath = "";
+let fzRemoteShare = null; // { ip, port, password, name }
+let fzRemotePath = "";
+let fzPasswordCache = {};
 
-// ---------- browser FTP condivisioni ----------
+document.querySelectorAll("#view-rete .hud-subnav-item").forEach(el => {
+    el.addEventListener("click", () => showReteSubview(el.dataset.subview));
+});
 
-let ftpState = null; // { ip, port, password, name, path }
-
-function openFtpBrowser(share) {
-    const password = prompt(`Password FTP per "${share.name || "dispositivo"}":`);
-    if (password === null) return;
-    ftpState = { ip: share.ip, port: share.ftp_port, password, name: share.name || "dispositivo", path: "" };
-    document.getElementById("ftpModalTitle").textContent = ftpState.name;
-    document.getElementById("ftpModalBackdrop").hidden = false;
-    loadFtpList();
-}
-
-function closeFtpBrowser() {
-    document.getElementById("ftpModalBackdrop").hidden = true;
-    ftpState = null;
-}
-
-function ftpUrl(endpoint) {
-    const p = new URLSearchParams({
-        ip: ftpState.ip, port: ftpState.port, password: ftpState.password, path: ftpState.path,
+function showReteSubview(name) {
+    currentReteSubview = name;
+    document.querySelectorAll("#view-rete .hud-subnav-item").forEach(el => {
+        el.classList.toggle("active", el.dataset.subview === name);
     });
-    return `${endpoint}?${p.toString()}`;
-}
-
-async function loadFtpList() {
-    document.getElementById("ftpModalPath").textContent = "/" + ftpState.path;
-    document.getElementById("ftpModalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--text-dim);">caricamento...</div>`;
-    try {
-        const res = await fetch(ftpUrl("/ftp/list"));
-        const result = await res.json();
-        if (!result.ok) throw new Error(result.error || "errore sconosciuto");
-        renderFtpEntries(result.entries);
-    } catch (e) {
-        document.getElementById("ftpModalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--red);">Errore: ${e.message}</div>`;
+    document.getElementById("subview-attivita").hidden = name !== "attivita";
+    document.getElementById("subview-filezilla").hidden = name !== "filezilla";
+    if (name === "attivita") loadTransferLog();
+    if (name === "filezilla") {
+        fzRefreshShares();
+        if (document.getElementById("fzLocalEntries").children.length === 0) fzLoadLocal();
     }
-}
-
-function renderFtpEntries(entries) {
-    const container = document.getElementById("ftpModalEntries");
-    const rows = [];
-    if (ftpState.path) {
-        rows.push(`<div class="ftp-entry" onclick="navigateFtpUp()">.. (su)</div>`);
-    }
-    if (entries.length === 0) {
-        rows.push(`<div class="hud-mono" style="font-size:12px; color:var(--text-faint); padding:8px 4px;">cartella vuota</div>`);
-    }
-    for (const entry of entries) {
-        const icon = entry.is_dir ? "▤" : "▢";
-        const sizeText = entry.is_dir ? "" : `<span class="ftp-entry-size">${formatBytes(entry.size)}</span>`;
-        rows.push(`
-            <div class="ftp-entry" onclick='onFtpEntryClick(${JSON.stringify(entry.name)}, ${entry.is_dir})'>
-                <span>${icon} ${entry.name}</span>
-                ${sizeText}
-            </div>
-        `);
-    }
-    container.innerHTML = rows.join("");
 }
 
 function formatBytes(bytes) {
@@ -206,44 +154,203 @@ function formatBytes(bytes) {
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function onFtpEntryClick(name, isDir) {
-    if (isDir) {
-        ftpState.path = ftpState.path ? `${ftpState.path}/${name}` : name;
-        loadFtpList();
-    } else {
-        const path = ftpState.path ? `${ftpState.path}/${name}` : name;
-        const savedPath = ftpState.path;
-        ftpState.path = path;
-        window.location.href = ftpUrl("/ftp/download");
-        ftpState.path = savedPath;
+// ---------- attività trasferimenti ----------
+
+async function loadTransferLog() {
+    const container = document.getElementById("transferLog");
+    try {
+        const res = await fetch("/ftp/activity");
+        const result = await res.json();
+        const entries = result.entries || [];
+        if (entries.length === 0) {
+            container.innerHTML = `<div class="hud-panel hud-mono" style="color:var(--text-dim); font-size:12px;">nessun trasferimento ancora</div>`;
+            return;
+        }
+        container.innerHTML = entries.map(e => `
+            <div class="hud-row">
+                <div class="hud-row-main">
+                    <div class="hud-row-name" style="cursor:default;">${e.direction === "upload" ? "↑" : "↓"} ${e.filename}</div>
+                    <div class="hud-row-detail">${e.direction === "upload" ? "verso" : "da"} ${e.share} — ${new Date(e.timestamp * 1000).toLocaleTimeString("it-IT")}${e.ok ? "" : " — errore: " + e.error}</div>
+                </div>
+                <span class="hud-dot ${e.ok ? "on" : "off"}"></span>
+            </div>
+        `).join("");
+    } catch (e) {
+        container.innerHTML = `<div class="hud-panel hud-mono" style="color:var(--red); font-size:12px;">Errore: ${e.message}</div>`;
     }
 }
 
-function navigateFtpUp() {
-    const parts = ftpState.path.split("/");
-    parts.pop();
-    ftpState.path = parts.join("/");
-    loadFtpList();
+// ---------- FileZilla: pannello dual-pane ----------
+
+function fzRefreshShares() {
+    const status = lastStatus || { shares: [] };
+    const select = document.getElementById("fzShareSelect");
+    const currentValue = select.value;
+    select.innerHTML = ['<option value="">— scegli una condivisione —</option>']
+        .concat(status.shares.map((s, i) => `<option value="${i}">${s.name || "dispositivo"} (${s.ip}:${s.ftp_port})</option>`))
+        .join("");
+    select.dataset.shares = JSON.stringify(status.shares);
+    if ([...select.options].some(o => o.value === currentValue)) select.value = currentValue;
 }
 
-async function onFtpUploadSelected(event) {
-    const file = event.target.files[0];
-    event.target.value = "";
-    if (!file || !ftpState) return;
-    const targetPath = ftpState.path ? `${ftpState.path}/${file.name}` : file.name;
-    const statusEl = document.getElementById("ftpModalStatus");
-    statusEl.textContent = `caricamento di ${file.name}...`;
-    const savedPath = ftpState.path;
-    ftpState.path = targetPath;
+function fzOnShareSelected() {
+    const select = document.getElementById("fzShareSelect");
+    const shares = JSON.parse(select.dataset.shares || "[]");
+    const share = shares[parseInt(select.value, 10)];
+    if (!share) {
+        fzRemoteShare = null;
+        document.getElementById("fzRemotePath").textContent = "nessuna condivisione selezionata";
+        document.getElementById("fzRemoteEntries").innerHTML = "";
+        return;
+    }
+    const cacheKey = `${share.ip}:${share.ftp_port}`;
+    let password = fzPasswordCache[cacheKey];
+    if (password === undefined) {
+        password = prompt(`Password FTP per "${share.name || "dispositivo"}":`);
+        if (password === null) { select.value = ""; return; }
+        fzPasswordCache[cacheKey] = password;
+    }
+    fzRemoteShare = { ip: share.ip, port: share.ftp_port, password, name: share.name || "dispositivo" };
+    fzRemotePath = "";
+    fzLoadRemote();
+}
+
+async function fzLoadLocal() {
+    document.getElementById("fzLocalPath").textContent = fzLocalPath || "unità disco";
+    document.getElementById("fzLocalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--text-dim);">caricamento...</div>`;
     try {
-        const res = await fetch(ftpUrl("/ftp/upload"), { method: "PUT", body: file });
+        const res = await fetch(`/local/list?path=${encodeURIComponent(fzLocalPath)}`);
         const result = await res.json();
-        statusEl.textContent = result.ok ? "caricato." : `errore: ${result.error}`;
+        if (!result.ok) throw new Error(result.error || "errore sconosciuto");
+        renderFzEntries("fzLocalEntries", result.entries, true, fzLocalPath !== "");
     } catch (e) {
-        statusEl.textContent = `errore: ${e.message}`;
-    } finally {
-        ftpState.path = savedPath;
-        loadFtpList();
+        document.getElementById("fzLocalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--red);">Errore: ${e.message}</div>`;
+    }
+}
+
+async function fzLoadRemote() {
+    if (!fzRemoteShare) return;
+    document.getElementById("fzRemotePath").textContent = "/" + fzRemotePath;
+    document.getElementById("fzRemoteEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--text-dim);">caricamento...</div>`;
+    try {
+        const p = new URLSearchParams({ ip: fzRemoteShare.ip, port: fzRemoteShare.port, password: fzRemoteShare.password, path: fzRemotePath });
+        const res = await fetch(`/ftp/list?${p.toString()}`);
+        const result = await res.json();
+        if (!result.ok) throw new Error(result.error || "errore sconosciuto");
+        renderFzEntries("fzRemoteEntries", result.entries, false, fzRemotePath !== "");
+    } catch (e) {
+        document.getElementById("fzRemoteEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--red);">Errore: ${e.message}</div>`;
+    }
+}
+
+function renderFzEntries(containerId, entries, isLocal, canGoUp) {
+    const container = document.getElementById(containerId);
+    const rows = [];
+    if (canGoUp) {
+        rows.push(`<div class="ftp-entry" onclick="${isLocal ? "fzLocalUp()" : "fzRemoteUp()"}">.. (su)</div>`);
+    }
+    if (entries.length === 0) {
+        rows.push(`<div class="hud-mono" style="font-size:12px; color:var(--text-faint); padding:8px 4px;">cartella vuota</div>`);
+    }
+    for (const entry of entries) {
+        const icon = entry.is_dir ? "▤" : "▢";
+        const sizeText = entry.is_dir ? "" : `<span class="ftp-entry-size">${formatBytes(entry.size)}</span>`;
+        const nav = entry.is_dir
+            ? `onclick='${isLocal ? "fzLocalOpen(" : "fzRemoteOpen("}${JSON.stringify(entry.name)})'`
+            : "";
+        const arrow = !entry.is_dir
+            ? (isLocal
+                ? `<span class="ftp-entry-arrow" title="carica sulla condivisione" onclick='fzUpload(${JSON.stringify(entry.name)}); event.stopPropagation();'>→</span>`
+                : `<span class="ftp-entry-arrow" title="scarica sul PC" onclick='fzDownload(${JSON.stringify(entry.name)}); event.stopPropagation();'>←</span>`)
+            : "";
+        rows.push(`
+            <div class="ftp-entry" ${nav}>
+                <span>${icon} ${entry.name}</span>
+                <span style="display:flex; align-items:center; gap:6px;">${sizeText}${arrow}</span>
+            </div>
+        `);
+    }
+    container.innerHTML = rows.join("");
+}
+
+function fzLocalOpen(name) {
+    if (!fzLocalPath) {
+        fzLocalPath = name; // scelta di un'unità (es. "C:\\"), già completa
+    } else if (fzLocalPath.endsWith("\\")) {
+        fzLocalPath += name;
+    } else {
+        fzLocalPath += "\\" + name;
+    }
+    fzLoadLocal();
+}
+
+function fzLocalUp() {
+    if (!fzLocalPath) return;
+    const trimmed = fzLocalPath.endsWith("\\") ? fzLocalPath.slice(0, -1) : fzLocalPath;
+    const idx = trimmed.lastIndexOf("\\");
+    let parent = idx >= 0 ? trimmed.substring(0, idx) : "";
+    if (parent.length === 2 && parent.endsWith(":")) parent += "\\"; // radice unità, es. "C:" -> "C:\\"
+    fzLocalPath = parent;
+    fzLoadLocal();
+}
+
+function fzRemoteOpen(name) {
+    fzRemotePath = fzRemotePath ? `${fzRemotePath}/${name}` : name;
+    fzLoadRemote();
+}
+
+function fzRemoteUp() {
+    const parts = fzRemotePath.split("/");
+    parts.pop();
+    fzRemotePath = parts.join("/");
+    fzLoadRemote();
+}
+
+function setFzStatus(text) {
+    document.getElementById("fzStatus").textContent = text;
+}
+
+async function fzUpload(filename) {
+    if (!fzRemoteShare) { setFzStatus("Seleziona prima una condivisione remota."); return; }
+    const localPath = fzLocalPath.endsWith("\\") ? fzLocalPath + filename : `${fzLocalPath}\\${filename}`;
+    setFzStatus(`Caricamento di ${filename}...`);
+    try {
+        const res = await fetch("/local/upload-to-remote", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                local_path: localPath, remote_path: fzRemotePath,
+                ip: fzRemoteShare.ip, port: fzRemoteShare.port, password: fzRemoteShare.password,
+                share_name: fzRemoteShare.name,
+            }),
+        });
+        const result = await res.json();
+        setFzStatus(result.ok ? `${filename} caricato.` : `Errore: ${result.error}`);
+        if (result.ok) fzLoadRemote();
+    } catch (e) {
+        setFzStatus(`Errore: ${e.message}`);
+    }
+}
+
+async function fzDownload(filename) {
+    if (!fzRemoteShare) return;
+    const remotePath = fzRemotePath ? `${fzRemotePath}/${filename}` : filename;
+    setFzStatus(`Download di ${filename}...`);
+    try {
+        const res = await fetch("/local/download-from-remote", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                remote_path: remotePath, local_dir: fzLocalPath,
+                ip: fzRemoteShare.ip, port: fzRemoteShare.port, password: fzRemoteShare.password,
+                share_name: fzRemoteShare.name,
+            }),
+        });
+        const result = await res.json();
+        setFzStatus(result.ok ? `${filename} scaricato.` : `Errore: ${result.error}`);
+        if (result.ok) fzLoadLocal();
+    } catch (e) {
+        setFzStatus(`Errore: ${e.message}`);
     }
 }
 
@@ -442,7 +549,7 @@ async function loadStatus() {
         lastStatus = status;
         renderTopbar(status);
         if (currentView === "overview") renderStatCards(status);
-        if (currentView === "rete") renderReteView(status);
+        if (currentView === "rete" && currentReteSubview === "filezilla") fzRefreshShares();
         if (currentView === "sistema") renderSistemaView(status);
     } catch (e) {
         document.getElementById("systemStatus").textContent = "NON RAGGIUNGIBILE";
