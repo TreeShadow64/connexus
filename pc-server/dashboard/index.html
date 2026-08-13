@@ -32,11 +32,17 @@
                 <div class="hud-mono" id="accountStatus" style="font-size:11px; color:var(--text-dim);">verifica...</div>
             </div>
             <div style="text-align:right;">
-                <div class="hud-eyebrow">SISTEMA</div>
+                <div class="hud-eyebrow">STATO</div>
                 <div style="display:flex; align-items:center; gap:6px; justify-content:flex-end;">
                     <span class="hud-dot on" id="systemDot"></span>
                     <span class="hud-mono" id="systemStatus" style="font-size:11px;">ONLINE</span>
                 </div>
+            </div>
+            <div class="hud-gear-button" id="gearButton" title="Impostazioni">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <circle cx="12" cy="12" r="3.2"/>
+                    <path d="M12 2.5v2.4M12 19.1v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/>
+                </svg>
             </div>
         </div>
     </header>
@@ -45,7 +51,7 @@
         <nav class="app-nav">
             <div class="app-nav-item active" data-view="overview">Overview</div>
             <div class="app-nav-item" data-view="rete">File &amp; Rete</div>
-            <div class="app-nav-item" data-view="sistema">Sistema</div>
+            <div class="app-nav-item" data-view="sistema">Impostazioni</div>
             <div class="app-nav-item" data-view="trova">Trova Dispositivo</div>
         </nav>
 
@@ -98,25 +104,36 @@
                         <button class="hud-button" onclick="fzRefreshShares()">AGGIORNA</button>
                         <span class="fz-quickbar-status" id="fzConnStatus">non connesso</span>
                     </div>
+                    <div class="fz-log" id="fzLog"></div>
                     <div class="fz-panes">
                         <div class="fz-pane">
                             <div class="fz-pane-header">Sito locale: <span id="fzLocalPath">/</span></div>
-                            <div class="fz-pane-cols">
-                                <span class="fz-col-name">Nome file</span>
-                                <span class="fz-col-size">Dimensione</span>
-                                <span class="fz-col-date">Ultima modifica</span>
+                            <div class="fz-pane-split">
+                                <div class="fz-pane-tree" id="fzLocalTree"><!-- popolate via JS --></div>
+                                <div class="fz-pane-list">
+                                    <div class="fz-pane-cols">
+                                        <span class="fz-col-name">Nome file</span>
+                                        <span class="fz-col-size">Dimensione</span>
+                                        <span class="fz-col-date">Ultima modifica</span>
+                                    </div>
+                                    <div class="fz-pane-body" id="fzLocalEntries"><!-- popolate via JS --></div>
+                                </div>
                             </div>
-                            <div class="fz-pane-body" id="fzLocalEntries"><!-- popolate via JS --></div>
                             <div class="fz-pane-footer" id="fzLocalFooter">0 file e 0 cartelle</div>
                         </div>
                         <div class="fz-pane">
                             <div class="fz-pane-header">Sito remoto: <span id="fzRemotePath">non connesso</span></div>
-                            <div class="fz-pane-cols">
-                                <span class="fz-col-name">Nome file</span>
-                                <span class="fz-col-size">Dimensione</span>
-                                <span class="fz-col-date">Ultima modifica</span>
+                            <div class="fz-pane-split">
+                                <div class="fz-pane-tree" id="fzRemoteTree"><!-- popolate via JS --></div>
+                                <div class="fz-pane-list">
+                                    <div class="fz-pane-cols">
+                                        <span class="fz-col-name">Nome file</span>
+                                        <span class="fz-col-size">Dimensione</span>
+                                        <span class="fz-col-date">Ultima modifica</span>
+                                    </div>
+                                    <div class="fz-pane-body" id="fzRemoteEntries"><!-- popolate via JS --></div>
+                                </div>
                             </div>
-                            <div class="fz-pane-body" id="fzRemoteEntries"><!-- popolate via JS --></div>
                             <div class="fz-pane-footer" id="fzRemoteFooter">non connesso</div>
                         </div>
                     </div>

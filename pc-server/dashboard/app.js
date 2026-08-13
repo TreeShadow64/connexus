@@ -47,6 +47,8 @@ document.querySelectorAll(".app-nav-item").forEach(el => {
     el.addEventListener("click", () => switchView(el.dataset.view));
 });
 
+document.getElementById("gearButton").addEventListener("click", () => switchView("sistema"));
+
 // ---------- azioni (pulsanti che comandano il backend) ----------
 
 async function runAction(action, payload = {}) {
@@ -180,7 +182,18 @@ async function loadTransferLog() {
     }
 }
 
-// ---------- FileZilla: pannello dual-pane ----------
+// ---------- Trasferimento File: pannello dual-pane ----------
+
+let fzLogLines = [];
+
+function fzLogAdd(text, isError) {
+    const time = new Date().toLocaleTimeString("it-IT");
+    fzLogLines.push({ text: `${time}  ${text}`, isError: !!isError });
+    if (fzLogLines.length > 60) fzLogLines.shift();
+    const el = document.getElementById("fzLog");
+    el.innerHTML = fzLogLines.map(l => `<div class="fz-log-line ${l.isError ? "err" : ""}">${l.text}</div>`).join("");
+    el.scrollTop = el.scrollHeight;
+}
 
 function fzRefreshShares() {
     const status = lastStatus || { shares: [] };
@@ -218,6 +231,7 @@ function fzOnShareSelected() {
     fzRemotePath = "";
     statusEl.textContent = `connesso a ${fzRemoteShare.name}`;
     statusEl.classList.add("connected");
+    fzLogAdd(`Connessione a ${fzRemoteShare.ip}:${fzRemoteShare.port}...`);
     fzLoadRemote();
 }
 
@@ -229,6 +243,7 @@ async function fzLoadLocal() {
         const result = await res.json();
         if (!result.ok) throw new Error(result.error || "errore sconosciuto");
         renderFzEntries("fzLocalEntries", "fzLocalFooter", result.entries, true, fzLocalPath !== "");
+        fzLoadLocalTree(result.entries);
     } catch (e) {
         document.getElementById("fzLocalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--red);">Errore: ${e.message}</div>`;
     }
@@ -244,9 +259,114 @@ async function fzLoadRemote() {
         const result = await res.json();
         if (!result.ok) throw new Error(result.error || "errore sconosciuto");
         renderFzEntries("fzRemoteEntries", "fzRemoteFooter", result.entries, false, fzRemotePath !== "");
+        fzLogAdd(`LIST /${fzRemotePath} — ${result.entries.length} elementi`);
+        fzLoadRemoteTree(result.entries);
     } catch (e) {
         document.getElementById("fzRemoteEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--red);">Errore: ${e.message}</div>`;
+        fzLogAdd(`Errore: ${e.message}`, true);
     }
+}
+
+// ---------- albero cartelle (livello genitore + figli della cartella corrente) ----------
+
+function fzLocalParentPath(path) {
+    if (!path) return null; // radice (elenco unità): nessun genitore
+    const trimmed = path.endsWith("\\") ? path.slice(0, -1) : path;
+    const idx = trimmed.lastIndexOf("\\");
+    let parent = idx >= 0 ? trimmed.substring(0, idx) : "";
+    if (parent.length === 2 && parent.endsWith(":")) parent += "\\";
+    return parent;
+}
+
+function fzLocalCurrentName(path) {
+    const trimmed = path.endsWith("\\") ? path.slice(0, -1) : path;
+    const idx = trimmed.lastIndexOf("\\");
+    return idx >= 0 ? trimmed.substring(idx + 1) : trimmed;
+}
+
+function fzRemoteParentPath(path) {
+    if (!path) return null;
+    const parts = path.split("/");
+    parts.pop();
+    return parts.join("/");
+}
+
+function fzRemoteCurrentName(path) {
+    const parts = path.split("/");
+    return parts[parts.length - 1];
+}
+
+function renderFzTreeFlat(container, entries, openFn) {
+    const rows = entries.filter(e => e.is_dir).map(e =>
+        `<div class="fz-tree-node" onclick='${openFn}(${JSON.stringify(e.name)})'>▤ ${e.name}</div>`
+    );
+    container.innerHTML = rows.join("") || `<div class="fz-tree-node" style="color:var(--text-faint); cursor:default;">—</div>`;
+}
+
+function renderFzTreeNested(container, siblings, currentName, children, siblingGoFn, childOpenFn) {
+    const rows = [];
+    for (const entry of siblings) {
+        if (!entry.is_dir) continue;
+        const isCurrent = entry.name === currentName;
+        rows.push(`<div class="fz-tree-node ${isCurrent ? "current" : ""}" onclick='${siblingGoFn}(${JSON.stringify(entry.name)})'>▤ ${entry.name}</div>`);
+        if (isCurrent) {
+            for (const child of children) {
+                if (!child.is_dir) continue;
+                rows.push(`<div class="fz-tree-node child" onclick='${childOpenFn}(${JSON.stringify(child.name)})'>▤ ${child.name}</div>`);
+            }
+        }
+    }
+    container.innerHTML = rows.join("") || `<div class="fz-tree-node" style="color:var(--text-faint); cursor:default;">—</div>`;
+}
+
+async function fzLoadLocalTree(childEntries) {
+    const container = document.getElementById("fzLocalTree");
+    const parent = fzLocalParentPath(fzLocalPath);
+    if (parent === null) {
+        renderFzTreeFlat(container, childEntries, "fzLocalOpen");
+        return;
+    }
+    try {
+        const res = await fetch(`/local/list?path=${encodeURIComponent(parent)}`);
+        const result = await res.json();
+        if (!result.ok) throw new Error(result.error);
+        renderFzTreeNested(container, result.entries, fzLocalCurrentName(fzLocalPath), childEntries, "fzLocalTreeGo", "fzLocalOpen");
+    } catch (e) {
+        container.innerHTML = `<div class="fz-tree-node" style="color:var(--red); cursor:default;">errore</div>`;
+    }
+}
+
+async function fzLoadRemoteTree(childEntries) {
+    const container = document.getElementById("fzRemoteTree");
+    if (!fzRemoteShare) { container.innerHTML = ""; return; }
+    const parent = fzRemoteParentPath(fzRemotePath);
+    if (parent === null) {
+        renderFzTreeFlat(container, childEntries, "fzRemoteOpen");
+        return;
+    }
+    try {
+        const p = new URLSearchParams({ ip: fzRemoteShare.ip, port: fzRemoteShare.port, password: fzRemoteShare.password, path: parent });
+        const res = await fetch(`/ftp/list?${p.toString()}`);
+        const result = await res.json();
+        if (!result.ok) throw new Error(result.error);
+        renderFzTreeNested(container, result.entries, fzRemoteCurrentName(fzRemotePath), childEntries, "fzRemoteTreeGo", "fzRemoteOpen");
+    } catch (e) {
+        container.innerHTML = `<div class="fz-tree-node" style="color:var(--red); cursor:default;">errore</div>`;
+    }
+}
+
+function fzLocalTreeGo(name) {
+    const parent = fzLocalParentPath(fzLocalPath);
+    if (parent === null) fzLocalPath = name;
+    else if (parent === "" || parent.endsWith("\\")) fzLocalPath = parent + name;
+    else fzLocalPath = parent + "\\" + name;
+    fzLoadLocal();
+}
+
+function fzRemoteTreeGo(name) {
+    const parent = fzRemoteParentPath(fzRemotePath);
+    fzRemotePath = parent ? `${parent}/${name}` : name;
+    fzLoadRemote();
 }
 
 function renderFzEntries(containerId, footerId, entries, isLocal, canGoUp) {
@@ -338,9 +458,11 @@ async function fzUpload(filename) {
         });
         const result = await res.json();
         setFzStatus(result.ok ? `${filename} caricato.` : `Errore: ${result.error}`);
+        fzLogAdd(result.ok ? `STOR ${filename} — completato` : `STOR ${filename} — ${result.error}`, !result.ok);
         if (result.ok) fzLoadRemote();
     } catch (e) {
         setFzStatus(`Errore: ${e.message}`);
+        fzLogAdd(`STOR ${filename} — ${e.message}`, true);
     }
 }
 
@@ -360,9 +482,11 @@ async function fzDownload(filename) {
         });
         const result = await res.json();
         setFzStatus(result.ok ? `${filename} scaricato.` : `Errore: ${result.error}`);
+        fzLogAdd(result.ok ? `RETR ${filename} — completato` : `RETR ${filename} — ${result.error}`, !result.ok);
         if (result.ok) fzLoadLocal();
     } catch (e) {
         setFzStatus(`Errore: ${e.message}`);
+        fzLogAdd(`RETR ${filename} — ${e.message}`, true);
     }
 }
 
