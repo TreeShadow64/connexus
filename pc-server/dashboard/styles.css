@@ -441,6 +441,13 @@ body {
     padding: 24px;
 }
 
+/* Stessa specificita' di ".ftp-modal-backdrop": senza questa regola il
+   "display: flex" sopra vince sempre sul default dell'attributo hidden,
+   e la finestra resta visibile anche quando dovrebbe essere nascosta. */
+.ftp-modal-backdrop[hidden] {
+    display: none;
+}
+
 .ftp-modal {
     background: var(--bg-panel-raised);
     border: 1px solid rgba(111, 227, 255, 0.25);
