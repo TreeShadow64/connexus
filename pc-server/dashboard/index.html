@@ -93,6 +93,22 @@
                 <div id="shareRows"><!-- popolate via JS --></div>
             </section>
 
+            <div class="ftp-modal-backdrop" id="ftpModalBackdrop" hidden>
+                <div class="ftp-modal">
+                    <div class="ftp-modal-header">
+                        <span class="hud-eyebrow" id="ftpModalTitle">condivisione</span>
+                        <span class="ftp-close" onclick="closeFtpBrowser()">&times;</span>
+                    </div>
+                    <div class="ftp-modal-path" id="ftpModalPath">/</div>
+                    <div class="ftp-modal-body" id="ftpModalEntries"><!-- popolate via JS --></div>
+                    <div class="ftp-modal-footer">
+                        <input type="file" id="ftpUploadInput" style="display:none;" onchange="onFtpUploadSelected(event)" />
+                        <button class="hud-button" onclick="document.getElementById('ftpUploadInput').click()">CARICA FILE QUI</button>
+                        <span class="hud-mono" id="ftpModalStatus" style="font-size:11px; color:var(--text-dim);"></span>
+                    </div>
+                </div>
+            </div>
+
             <section class="view" id="view-sistema" hidden>
                 <div class="hud-grid-2" id="sistemaCards"><!-- popolate via JS --></div>
             </section>

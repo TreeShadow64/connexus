@@ -172,12 +172,119 @@ function renderReteView(status) {
     container.innerHTML = status.shares.map(share => `
         <div class="hud-row">
             <div class="hud-row-main">
-                <div class="hud-row-name" style="cursor:default;">${share.name || "dispositivo"}</div>
-                <div class="hud-row-detail">"${share.folder || "?"}" — ftp://${share.ip}:${share.ftp_port}</div>
+                <div class="hud-row-name" onclick='openFtpBrowser(${JSON.stringify(share)})'>${share.name || "dispositivo"}</div>
+                <div class="hud-row-detail">"${share.folder || "?"}" — ftp://${share.ip}:${share.ftp_port} (tocca il nome per sfogliare)</div>
             </div>
             <span class="hud-dot on"></span>
         </div>
     `).join("");
+}
+
+// ---------- browser FTP condivisioni ----------
+
+let ftpState = null; // { ip, port, password, name, path }
+
+function openFtpBrowser(share) {
+    const password = prompt(`Password FTP per "${share.name || "dispositivo"}":`);
+    if (password === null) return;
+    ftpState = { ip: share.ip, port: share.ftp_port, password, name: share.name || "dispositivo", path: "" };
+    document.getElementById("ftpModalTitle").textContent = ftpState.name;
+    document.getElementById("ftpModalBackdrop").hidden = false;
+    loadFtpList();
+}
+
+function closeFtpBrowser() {
+    document.getElementById("ftpModalBackdrop").hidden = true;
+    ftpState = null;
+}
+
+function ftpUrl(endpoint) {
+    const p = new URLSearchParams({
+        ip: ftpState.ip, port: ftpState.port, password: ftpState.password, path: ftpState.path,
+    });
+    return `${endpoint}?${p.toString()}`;
+}
+
+async function loadFtpList() {
+    document.getElementById("ftpModalPath").textContent = "/" + ftpState.path;
+    document.getElementById("ftpModalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--text-dim);">caricamento...</div>`;
+    try {
+        const res = await fetch(ftpUrl("/ftp/list"));
+        const result = await res.json();
+        if (!result.ok) throw new Error(result.error || "errore sconosciuto");
+        renderFtpEntries(result.entries);
+    } catch (e) {
+        document.getElementById("ftpModalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--red);">Errore: ${e.message}</div>`;
+    }
+}
+
+function renderFtpEntries(entries) {
+    const container = document.getElementById("ftpModalEntries");
+    const rows = [];
+    if (ftpState.path) {
+        rows.push(`<div class="ftp-entry" onclick="navigateFtpUp()">.. (su)</div>`);
+    }
+    if (entries.length === 0) {
+        rows.push(`<div class="hud-mono" style="font-size:12px; color:var(--text-faint); padding:8px 4px;">cartella vuota</div>`);
+    }
+    for (const entry of entries) {
+        const icon = entry.is_dir ? "▤" : "▢";
+        const sizeText = entry.is_dir ? "" : `<span class="ftp-entry-size">${formatBytes(entry.size)}</span>`;
+        rows.push(`
+            <div class="ftp-entry" onclick='onFtpEntryClick(${JSON.stringify(entry.name)}, ${entry.is_dir})'>
+                <span>${icon} ${entry.name}</span>
+                ${sizeText}
+            </div>
+        `);
+    }
+    container.innerHTML = rows.join("");
+}
+
+function formatBytes(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function onFtpEntryClick(name, isDir) {
+    if (isDir) {
+        ftpState.path = ftpState.path ? `${ftpState.path}/${name}` : name;
+        loadFtpList();
+    } else {
+        const path = ftpState.path ? `${ftpState.path}/${name}` : name;
+        const savedPath = ftpState.path;
+        ftpState.path = path;
+        window.location.href = ftpUrl("/ftp/download");
+        ftpState.path = savedPath;
+    }
+}
+
+function navigateFtpUp() {
+    const parts = ftpState.path.split("/");
+    parts.pop();
+    ftpState.path = parts.join("/");
+    loadFtpList();
+}
+
+async function onFtpUploadSelected(event) {
+    const file = event.target.files[0];
+    event.target.value = "";
+    if (!file || !ftpState) return;
+    const targetPath = ftpState.path ? `${ftpState.path}/${file.name}` : file.name;
+    const statusEl = document.getElementById("ftpModalStatus");
+    statusEl.textContent = `caricamento di ${file.name}...`;
+    const savedPath = ftpState.path;
+    ftpState.path = targetPath;
+    try {
+        const res = await fetch(ftpUrl("/ftp/upload"), { method: "PUT", body: file });
+        const result = await res.json();
+        statusEl.textContent = result.ok ? "caricato." : `errore: ${result.error}`;
+    } catch (e) {
+        statusEl.textContent = `errore: ${e.message}`;
+    } finally {
+        ftpState.path = savedPath;
+        loadFtpList();
+    }
 }
 
 // ---------- sistema ----------
