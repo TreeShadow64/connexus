@@ -6,6 +6,7 @@ token gia' richiesto su ogni canale. L'unica cosa da evitare sono crash su
 cartelle non leggibili (permessi negati, unita' rimovibili assenti, ecc.).
 """
 import string
+from datetime import datetime
 from pathlib import Path
 
 
@@ -18,7 +19,7 @@ def list_drives():
     for letter in string.ascii_uppercase:
         root = Path(f"{letter}:\\")
         if root.exists():
-            drives.append({"name": f"{letter}:\\", "is_dir": True, "size": 0})
+            drives.append({"name": f"{letter}:\\", "is_dir": True, "size": 0, "modified": ""})
     return drives
 
 
@@ -40,11 +41,13 @@ def list_directory(path):
 
     for child in children:
         try:
+            stat = child.stat()
             is_dir = child.is_dir()
-            size = 0 if is_dir else child.stat().st_size
+            size = 0 if is_dir else stat.st_size
+            modified = datetime.fromtimestamp(stat.st_mtime).strftime("%d/%m/%Y %H:%M")
         except (PermissionError, OSError):
             continue
-        entries.append({"name": child.name, "is_dir": is_dir, "size": size})
+        entries.append({"name": child.name, "is_dir": is_dir, "size": size, "modified": modified})
 
     entries.sort(key=lambda e: (not e["is_dir"], e["name"].lower()))
     return entries

@@ -81,7 +81,7 @@
             <section class="view" id="view-rete" hidden>
                 <div class="hud-subnav">
                     <div class="hud-subnav-item active" data-subview="attivita">Attività trasferimenti</div>
-                    <div class="hud-subnav-item" data-subview="filezilla">FileZilla</div>
+                    <div class="hud-subnav-item" data-subview="filezilla">Trasferimento File</div>
                 </div>
 
                 <div class="subview" id="subview-attivita">
@@ -90,22 +90,34 @@
                 </div>
 
                 <div class="subview" id="subview-filezilla" hidden>
-                    <div class="fz-toolbar">
+                    <div class="fz-quickbar">
+                        <span class="fz-quickbar-label">Condivisione:</span>
                         <select id="fzShareSelect" onchange="fzOnShareSelected()">
-                            <option value="">— scegli una condivisione —</option>
+                            <option value="">— nessuna —</option>
                         </select>
-                        <button class="hud-button" onclick="fzRefreshShares()">AGGIORNA CONDIVISIONI</button>
+                        <button class="hud-button" onclick="fzRefreshShares()">AGGIORNA</button>
+                        <span class="fz-quickbar-status" id="fzConnStatus">non connesso</span>
                     </div>
                     <div class="fz-panes">
                         <div class="fz-pane">
-                            <div class="fz-pane-header">LOCALE — questo PC</div>
-                            <div class="fz-pane-path" id="fzLocalPath">/</div>
+                            <div class="fz-pane-header">Sito locale: <span id="fzLocalPath">/</span></div>
+                            <div class="fz-pane-cols">
+                                <span class="fz-col-name">Nome file</span>
+                                <span class="fz-col-size">Dimensione</span>
+                                <span class="fz-col-date">Ultima modifica</span>
+                            </div>
                             <div class="fz-pane-body" id="fzLocalEntries"><!-- popolate via JS --></div>
+                            <div class="fz-pane-footer" id="fzLocalFooter">0 file e 0 cartelle</div>
                         </div>
                         <div class="fz-pane">
-                            <div class="fz-pane-header">REMOTO — condivisione telefono</div>
-                            <div class="fz-pane-path" id="fzRemotePath">nessuna condivisione selezionata</div>
+                            <div class="fz-pane-header">Sito remoto: <span id="fzRemotePath">non connesso</span></div>
+                            <div class="fz-pane-cols">
+                                <span class="fz-col-name">Nome file</span>
+                                <span class="fz-col-size">Dimensione</span>
+                                <span class="fz-col-date">Ultima modifica</span>
+                            </div>
                             <div class="fz-pane-body" id="fzRemoteEntries"><!-- popolate via JS --></div>
+                            <div class="fz-pane-footer" id="fzRemoteFooter">non connesso</div>
                         </div>
                     </div>
                     <div class="fz-status" id="fzStatus"></div>

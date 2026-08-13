@@ -32,14 +32,15 @@ def _parse_list_line(line):
     parts = line.split(None, 7)
     if len(parts) < 8:
         return None
-    perm, _links, _owner, _group, size, _month, _day, rest = parts
-    _time, _, filename = rest.partition(" ")
+    perm, _links, _owner, _group, size, month, day, rest = parts
+    time_part, _, filename = rest.partition(" ")
     if not filename:
         return None
     return {
         "name": filename,
         "is_dir": perm.startswith("d"),
         "size": int(size) if size.isdigit() else 0,
+        "modified": f"{day} {month} {time_part}",
     }
 
 

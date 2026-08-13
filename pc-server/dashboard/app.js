@@ -197,10 +197,14 @@ function fzOnShareSelected() {
     const select = document.getElementById("fzShareSelect");
     const shares = JSON.parse(select.dataset.shares || "[]");
     const share = shares[parseInt(select.value, 10)];
+    const statusEl = document.getElementById("fzConnStatus");
     if (!share) {
         fzRemoteShare = null;
-        document.getElementById("fzRemotePath").textContent = "nessuna condivisione selezionata";
+        document.getElementById("fzRemotePath").textContent = "non connesso";
         document.getElementById("fzRemoteEntries").innerHTML = "";
+        document.getElementById("fzRemoteFooter").textContent = "non connesso";
+        statusEl.textContent = "non connesso";
+        statusEl.classList.remove("connected");
         return;
     }
     const cacheKey = `${share.ip}:${share.ftp_port}`;
@@ -212,6 +216,8 @@ function fzOnShareSelected() {
     }
     fzRemoteShare = { ip: share.ip, port: share.ftp_port, password, name: share.name || "dispositivo" };
     fzRemotePath = "";
+    statusEl.textContent = `connesso a ${fzRemoteShare.name}`;
+    statusEl.classList.add("connected");
     fzLoadRemote();
 }
 
@@ -222,7 +228,7 @@ async function fzLoadLocal() {
         const res = await fetch(`/local/list?path=${encodeURIComponent(fzLocalPath)}`);
         const result = await res.json();
         if (!result.ok) throw new Error(result.error || "errore sconosciuto");
-        renderFzEntries("fzLocalEntries", result.entries, true, fzLocalPath !== "");
+        renderFzEntries("fzLocalEntries", "fzLocalFooter", result.entries, true, fzLocalPath !== "");
     } catch (e) {
         document.getElementById("fzLocalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--red);">Errore: ${e.message}</div>`;
     }
@@ -237,24 +243,26 @@ async function fzLoadRemote() {
         const res = await fetch(`/ftp/list?${p.toString()}`);
         const result = await res.json();
         if (!result.ok) throw new Error(result.error || "errore sconosciuto");
-        renderFzEntries("fzRemoteEntries", result.entries, false, fzRemotePath !== "");
+        renderFzEntries("fzRemoteEntries", "fzRemoteFooter", result.entries, false, fzRemotePath !== "");
     } catch (e) {
         document.getElementById("fzRemoteEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--red);">Errore: ${e.message}</div>`;
     }
 }
 
-function renderFzEntries(containerId, entries, isLocal, canGoUp) {
+function renderFzEntries(containerId, footerId, entries, isLocal, canGoUp) {
     const container = document.getElementById(containerId);
     const rows = [];
     if (canGoUp) {
-        rows.push(`<div class="ftp-entry" onclick="${isLocal ? "fzLocalUp()" : "fzRemoteUp()"}">.. (su)</div>`);
+        rows.push(`<div class="ftp-entry" onclick="${isLocal ? "fzLocalUp()" : "fzRemoteUp()"}"><span class="ftp-entry-name">.. (su)</span></div>`);
     }
     if (entries.length === 0) {
         rows.push(`<div class="hud-mono" style="font-size:12px; color:var(--text-faint); padding:8px 4px;">cartella vuota</div>`);
     }
+    let fileCount = 0, dirCount = 0, totalSize = 0;
     for (const entry of entries) {
+        if (entry.is_dir) dirCount++; else { fileCount++; totalSize += entry.size; }
         const icon = entry.is_dir ? "▤" : "▢";
-        const sizeText = entry.is_dir ? "" : `<span class="ftp-entry-size">${formatBytes(entry.size)}</span>`;
+        const sizeText = entry.is_dir ? "" : formatBytes(entry.size);
         const nav = entry.is_dir
             ? `onclick='${isLocal ? "fzLocalOpen(" : "fzRemoteOpen("}${JSON.stringify(entry.name)})'`
             : "";
@@ -265,12 +273,16 @@ function renderFzEntries(containerId, entries, isLocal, canGoUp) {
             : "";
         rows.push(`
             <div class="ftp-entry" ${nav}>
-                <span>${icon} ${entry.name}</span>
-                <span style="display:flex; align-items:center; gap:6px;">${sizeText}${arrow}</span>
+                <span class="ftp-entry-name">${icon} ${entry.name}</span>
+                <span class="ftp-entry-size">${sizeText}</span>
+                <span class="ftp-entry-date">${entry.modified || ""}</span>
+                ${arrow}
             </div>
         `);
     }
     container.innerHTML = rows.join("");
+    document.getElementById(footerId).textContent =
+        `${fileCount} file e ${dirCount} cartelle — ${formatBytes(totalSize)} totali`;
 }
 
 function fzLocalOpen(name) {
