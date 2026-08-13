@@ -118,48 +118,8 @@ function renderTopbar(status) {
 
 // ---------- schermo & proiezione ----------
 
-function renderSchermoView(status) {
-    const cards = [
-        statCard(
-            "condivisione schermo · in uscita verso il telefono", "Schermo PC",
-            status.screen_viewers > 0 ? `${status.screen_viewers} spettatori collegati ora` : "nessuno spettatore",
-            status.screen_viewers > 0 ? "on" : "off"
-        ),
-        statCard(
-            "specchio dal telefono · in entrata, finestra nativa", "Projector",
-            status.projector_active ? "in ricezione — vedi la finestra 'Specchio telefono'" : "fermo",
-            status.projector_active ? "on" : "off",
-            status.projector_active
-                ? `<button class="hud-button danger" onclick="runAction('stop_projector').then(loadStatus)">CHIUDI FINESTRA</button>`
-                : ""
-        ),
-    ];
-    document.getElementById("schermoCards").innerHTML = cards.join("");
-}
-
 // ---------- webcam ----------
 
-function renderWebcamView(status) {
-    const cards = [
-        statCard(
-            "virtual camera · webcam del telefono verso il pc", "Virtual Camera",
-            status.virtualcam_error ? status.virtualcam_error : (status.virtualcam_active ? "attiva — selezionabile come 'OBS Virtual Camera'" : "non attiva"),
-            status.virtualcam_error ? "warn" : (status.virtualcam_active ? "on" : "off"),
-            status.virtualcam_active
-                ? `<button class="hud-button danger" onclick="runAction('stop_virtualcam').then(loadStatus)">FERMA</button>`
-                : ""
-        ),
-        statCard(
-            "camera uvc · webcam fisica del pc verso il telefono", "Camera UVC",
-            status.uvccam_active ? `in streaming (dispositivo camera ${status.uvccam_device})` : "non attiva",
-            status.uvccam_active ? "on" : "off",
-            status.uvccam_active
-                ? `<button class="hud-button danger" onclick="runAction('stop_uvccam').then(loadStatus)">FERMA</button>`
-                : ""
-        ),
-    ];
-    document.getElementById("webcamCards").innerHTML = cards.join("");
-}
 
 // ---------- file & rete ----------
 
@@ -344,6 +304,41 @@ function renderSistemaView(status) {
             status.account_paired ? "abbinato, in ascolto" : "non abbinato — apri 'Trova dispositivo' dal telefono",
             status.account_paired ? "on" : "warn"
         ),
+        statCard(
+            "schermo pc (in uscita) + projector (in entrata) · avviati dal telefono", "Condivisione schermo",
+            `Schermo PC: ${status.screen_viewers > 0 ? status.screen_viewers + " spettatori" : "nessuno spettatore"} — `
+                + `Projector: ${status.projector_active ? "in ricezione" : "fermo"}`,
+            (status.screen_viewers > 0 || status.projector_active) ? "on" : "off",
+            status.projector_active
+                ? `<button class="hud-button danger" onclick="runAction('stop_projector').then(loadStatus)">CHIUDI FINESTRA PROJECTOR</button>`
+                : ""
+        ),
+        statCard(
+            "nega nuove connessioni e interrompe quelle in corso · di default spento, sempre accessibile", "Blocco accesso remoto schermo",
+            status.remote_screen_blocked ? "bloccato — il telefono non può collegarsi" : "sbloccato — accesso libero dal telefono",
+            status.remote_screen_blocked ? "warn" : "on",
+            `<button class="hud-button ${status.remote_screen_blocked ? "" : "danger"}"
+                     onclick="runAction('set_remote_screen_blocked', {enabled: ${!status.remote_screen_blocked}}).then(loadStatus)">
+                ${status.remote_screen_blocked ? "SBLOCCA" : "BLOCCA ORA"}
+             </button>`
+        ),
+        statCard(
+            "virtual camera (telefono→pc) + camera uvc (pc→telefono) · avviate dal telefono", "Webcam",
+            `Virtual Camera: ${status.virtualcam_error ? status.virtualcam_error : (status.virtualcam_active ? "attiva" : "non attiva")} — `
+                + `Camera UVC: ${status.uvccam_active ? "in streaming (cam " + status.uvccam_device + ")" : "non attiva"}`,
+            status.virtualcam_error ? "warn" : ((status.virtualcam_active || status.uvccam_active) ? "on" : "off"),
+            (status.virtualcam_active ? `<button class="hud-button danger" onclick="runAction('stop_virtualcam').then(loadStatus)">FERMA VIRTUAL CAM</button>` : "")
+                + (status.uvccam_active ? `<button class="hud-button danger" onclick="runAction('stop_uvccam').then(loadStatus)">FERMA CAMERA UVC</button>` : "")
+        ),
+        statCard(
+            "nega nuove connessioni e interrompe quelle in corso · di default spento, sempre accessibile", "Blocco accesso remoto webcam",
+            status.remote_webcam_blocked ? "bloccato — il telefono non può collegarsi" : "sbloccato — accesso libero dal telefono",
+            status.remote_webcam_blocked ? "warn" : "on",
+            `<button class="hud-button ${status.remote_webcam_blocked ? "" : "danger"}"
+                     onclick="runAction('set_remote_webcam_blocked', {enabled: ${!status.remote_webcam_blocked}}).then(loadStatus)">
+                ${status.remote_webcam_blocked ? "SBLOCCA" : "BLOCCA ORA"}
+             </button>`
+        ),
         statCard("aggiornamenti · github releases", "Versione PC", updateValue, updateDot, updateActions),
     ];
     if (!status.service_installed) {
@@ -447,8 +442,6 @@ async function loadStatus() {
         lastStatus = status;
         renderTopbar(status);
         if (currentView === "overview") renderStatCards(status);
-        if (currentView === "schermo") renderSchermoView(status);
-        if (currentView === "webcam") renderWebcamView(status);
         if (currentView === "rete") renderReteView(status);
         if (currentView === "sistema") renderSistemaView(status);
     } catch (e) {

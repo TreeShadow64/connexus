@@ -69,6 +69,22 @@ SPECIAL_KEYS = {
 
 last_renderers = []
 
+# Blocco manuale di "Schermo PC" e "Projector" dalle Impostazioni: di
+# default disattivo (le due funzioni restano sempre accessibili dal
+# telefono), attivabile su richiesta per negare nuove connessioni e
+# interrompere quelle gia' in corso in un colpo solo.
+remote_screen_blocked = False
+screen_share_sockets = set()
+projector_sockets = set()
+
+# Stesso meccanismo, ma per le due webcam (Virtual Camera e Camera UVC):
+# anche queste si avviano sempre dal telefono, mai dal PC.
+remote_webcam_blocked = False
+virtualcam_sockets = set()
+uvccam_sockets = set()
+
+_main_loop = None
+
 SERVER_START_TIME = time.time()
 
 # Connessioni attive sul canale principale (mouse/tastiera/TV/file...): usato
@@ -631,8 +647,13 @@ async def screen_handler(websocket):
         log.warning(f"Autenticazione schermo esteso fallita da {peer}")
         await websocket.close(code=4001, reason="Autenticazione richiesta")
         return
+    if remote_screen_blocked:
+        log.info(f"Schermo esteso rifiutato (accesso bloccato dalle impostazioni) da {peer}")
+        await websocket.close(code=4003, reason="Accesso bloccato dal PC")
+        return
 
     log.info(f"Schermo esteso richiesto da {peer}")
+    screen_share_sockets.add(websocket)
 
     loop = asyncio.get_running_loop()
     frames = asyncio.Queue(maxsize=2)
@@ -695,6 +716,7 @@ async def screen_handler(websocket):
     finally:
         sender.cancel()
         receiver.cancel()
+        screen_share_sockets.discard(websocket)
         await asyncio.to_thread(screen_stream.hub.unsubscribe, on_frame)
         log.info(f"Schermo esteso chiuso da {peer}")
 
@@ -771,8 +793,13 @@ async def projector_handler(websocket):
         log.warning(f"Autenticazione projector fallita da {peer}")
         await websocket.close(code=4001, reason="Autenticazione richiesta")
         return
+    if remote_screen_blocked:
+        log.info(f"Projector rifiutato (accesso bloccato dalle impostazioni) da {peer}")
+        await websocket.close(code=4003, reason="Accesso bloccato dal PC")
+        return
 
     log.info(f"Projector connesso da {peer}")
+    projector_sockets.add(websocket)
     projector_viewer.start()
     try:
         async for message in websocket:
@@ -781,6 +808,7 @@ async def projector_handler(websocket):
     except websockets.ConnectionClosed:
         pass
     finally:
+        projector_sockets.discard(websocket)
         projector_viewer.stop()
         log.info(f"Projector disconnesso da {peer}")
 
@@ -870,8 +898,13 @@ async def virtualcam_handler(websocket):
         log.warning(f"Autenticazione virtual camera fallita da {peer}")
         await websocket.close(code=4001, reason="Autenticazione richiesta")
         return
+    if remote_webcam_blocked:
+        log.info(f"Virtual camera rifiutata (accesso bloccato dalle impostazioni) da {peer}")
+        await websocket.close(code=4003, reason="Accesso bloccato dal PC")
+        return
 
     log.info(f"Virtual camera connessa da {peer}")
+    virtualcam_sockets.add(websocket)
     virtualcam_output.start()
     try:
         async for message in websocket:
@@ -890,6 +923,7 @@ async def virtualcam_handler(websocket):
     except websockets.ConnectionClosed:
         pass
     finally:
+        virtualcam_sockets.discard(websocket)
         virtualcam_output.stop()
         log.info(f"Virtual camera disconnessa da {peer}")
 
@@ -996,8 +1030,13 @@ async def uvccam_handler(websocket):
         log.warning(f"Autenticazione camera UVC fallita da {peer}")
         await websocket.close(code=4001, reason="Autenticazione richiesta")
         return
+    if remote_webcam_blocked:
+        log.info(f"Camera UVC rifiutata (accesso bloccato dalle impostazioni) da {peer}")
+        await websocket.close(code=4003, reason="Accesso bloccato dal PC")
+        return
 
     log.info(f"Camera UVC connessa da {peer}")
+    uvccam_sockets.add(websocket)
     streamer = UvcCameraStreamer()
     global active_uvccam_streamer
     active_uvccam_streamer = streamer
@@ -1045,12 +1084,45 @@ async def uvccam_handler(websocket):
     finally:
         sender.cancel()
         receiver.cancel()
+        uvccam_sockets.discard(websocket)
         await asyncio.to_thread(streamer.stop)
         uvccam_status["active"] = False
         uvccam_status["device"] = None
         if active_uvccam_streamer is streamer:
             active_uvccam_streamer = None
         log.info(f"Camera UVC disconnessa da {peer}")
+
+
+def set_remote_screen_blocked(enabled):
+    """Attivato dalle Impostazioni: nega nuove connessioni a 'Schermo PC' e
+    'Projector' e, nello stesso momento, interrompe quelle gia' in corso
+    (altrimenti resterebbero collegate finche' non si disconnettono da sole)."""
+    global remote_screen_blocked
+    remote_screen_blocked = bool(enabled)
+    if remote_screen_blocked and _main_loop is not None:
+        for ws in list(screen_share_sockets) + list(projector_sockets):
+            asyncio.run_coroutine_threadsafe(
+                ws.close(code=4003, reason="Accesso bloccato dal PC"), _main_loop
+            )
+        projector_viewer.stop()
+    log.info(f"Accesso remoto schermo {'bloccato' if remote_screen_blocked else 'sbloccato'} dalle impostazioni")
+    return remote_screen_blocked
+
+
+def set_remote_webcam_blocked(enabled):
+    """Stesso principio di set_remote_screen_blocked(), per Virtual Camera e Camera UVC."""
+    global remote_webcam_blocked
+    remote_webcam_blocked = bool(enabled)
+    if remote_webcam_blocked and _main_loop is not None:
+        for ws in list(virtualcam_sockets) + list(uvccam_sockets):
+            asyncio.run_coroutine_threadsafe(
+                ws.close(code=4003, reason="Accesso bloccato dal PC"), _main_loop
+            )
+        virtualcam_output.stop()
+        if active_uvccam_streamer is not None:
+            active_uvccam_streamer.stop()
+    log.info(f"Accesso remoto webcam {'bloccato' if remote_webcam_blocked else 'sbloccato'} dalle impostazioni")
+    return remote_webcam_blocked
 
 
 def collect_dashboard_status():
@@ -1065,6 +1137,8 @@ def collect_dashboard_status():
         "connected_clients": len(connected_clients),
         "screen_viewers": screen_stream.hub.viewers,
         "projector_active": projector_viewer.is_active,
+        "remote_screen_blocked": remote_screen_blocked,
+        "remote_webcam_blocked": remote_webcam_blocked,
         "virtualcam_active": virtualcam_output.is_active,
         "virtualcam_error": virtualcam_output.error,
         "uvccam_active": uvccam_status["active"],
@@ -1085,6 +1159,10 @@ def handle_dashboard_action(action, payload):
     if action == "stop_projector":
         projector_viewer.stop()
         return {"ok": True}
+    if action == "set_remote_screen_blocked":
+        return {"ok": True, "blocked": set_remote_screen_blocked(payload.get("enabled"))}
+    if action == "set_remote_webcam_blocked":
+        return {"ok": True, "blocked": set_remote_webcam_blocked(payload.get("enabled"))}
     if action == "stop_virtualcam":
         virtualcam_output.stop()
         return {"ok": True}
@@ -1124,6 +1202,8 @@ def handle_dashboard_action(action, payload):
 
 
 async def main():
+    global _main_loop
+    _main_loop = asyncio.get_running_loop()
     print("=" * 60, flush=True)
     print("  TOKEN DI ACCESSO (da inserire una volta nell'app):", flush=True)
     print(f"  {auth.TOKEN}", flush=True)
