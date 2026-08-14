@@ -225,7 +225,17 @@ class DlnaMediaServer:
                 elif self.path == "/dlna/ConnectionManager.xml":
                     self._send_xml(_CM_SCPD)
                 elif self.path.startswith("/dlna/content/"):
-                    media_server._serve_content(self)
+                    media_server._serve_content(self, send_body=True)
+                else:
+                    self.send_error(404)
+
+            def do_HEAD(self):
+                # I player DLNA (inclusi quelli LG webOS) spesso interrogano
+                # il file con HEAD prima di riprodurlo davvero, per leggere
+                # Content-Length/Content-Type: senza risposta qui rinunciano
+                # a riprodurre anche se poi la GET funzionerebbe benissimo.
+                if self.path.startswith("/dlna/content/"):
+                    media_server._serve_content(self, send_body=False)
                 else:
                     self.send_error(404)
 
@@ -263,7 +273,7 @@ class DlnaMediaServer:
         self._httpd = ThreadingHTTPServer(("0.0.0.0", HTTP_PORT), Handler)
         threading.Thread(target=self._httpd.serve_forever, daemon=True).start()
 
-    def _serve_content(self, handler):
+    def _serve_content(self, handler, send_body=True):
         encoded = handler.path[len("/dlna/content/"):]
         rel_path = _decode_id(unquote(encoded))
         file_path = (self.root / rel_path).resolve()
@@ -298,6 +308,8 @@ class DlnaMediaServer:
             if status == 206:
                 handler.send_header("Content-Range", f"bytes {start}-{end}/{size}")
             handler.end_headers()
+            if not send_body:
+                return
             with open(file_path, "rb") as f:
                 f.seek(start)
                 remaining = length
