@@ -24,6 +24,16 @@ def discover_renderers(timeout=3):
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Senza bind esplicito, Windows sceglie l'interfaccia in uscita per il
+    # multicast in base alla metrica di routing piu' bassa: se e' installata
+    # una VPN (es. Tailscale) con metrica minore della LAN vera, il
+    # M-SEARCH parte dalla VPN e nessun dispositivo sulla LAN lo vede mai
+    # (0 risultati anche con la TV accesa e raggiungibile). Legare il socket
+    # all'IP della LAN vera forza l'uscita dall'interfaccia giusta a
+    # prescindere da quali altre interfacce virtuali siano presenti.
+    local_ip = get_local_ip()
+    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(local_ip))
+    sock.bind((local_ip, 0))
     sock.settimeout(timeout)
     sock.sendto(msg, (SSDP_ADDR, SSDP_PORT))
 
