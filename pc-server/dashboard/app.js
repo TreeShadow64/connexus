@@ -191,7 +191,10 @@ function showTvSubview(name) {
     });
     document.getElementById("subview-telecomando").hidden = name !== "telecomando";
     document.getElementById("subview-condividi").hidden = name !== "condividi";
-    if (name === "condividi" && document.getElementById("tvLocalEntries").children.length === 0) tvLoadLocal();
+    if (name === "condividi") {
+        if (document.getElementById("tvLocalEntries").children.length === 0) tvLoadLocal();
+        if (lastStatus) updateTvShareUI(lastStatus);
+    }
 }
 
 function tvSetStatus(text) {
@@ -274,6 +277,37 @@ async function tvCastDiscover() {
 
 function tvSetStatus2(text) {
     document.getElementById("tvCastStatus").textContent = text;
+}
+
+function updateTvShareUI(status) {
+    const statusEl = document.getElementById("tvShareStatus");
+    const button = document.getElementById("tvShareButton");
+    if (!statusEl || !button) return;
+    if (status.tv_share_active) {
+        statusEl.textContent = `condivisa: ${status.tv_share_folder}`;
+        statusEl.title = status.tv_share_folder;
+        statusEl.classList.add("connected");
+        button.textContent = "FERMA CONDIVISIONE";
+    } else {
+        statusEl.textContent = "non condivisa";
+        statusEl.classList.remove("connected");
+        button.textContent = "CONDIVIDI QUESTA CARTELLA";
+    }
+}
+
+async function toggleTvShare() {
+    if (lastStatus && lastStatus.tv_share_active) {
+        const result = await runAction("stop_tv_share");
+        tvSetStatus2(result.ok ? "Condivisione con la TV fermata." : `Errore: ${result.error}`);
+        return;
+    }
+    if (!tvLocalPath) {
+        tvSetStatus2("Naviga prima dentro una cartella da condividere (non si può condividere l'elenco unità).");
+        return;
+    }
+    tvSetStatus2(`Condivisione di ${tvLocalPath} con la TV...`);
+    const result = await runAction("start_tv_share", { folder: tvLocalPath });
+    tvSetStatus2(result.ok ? "Condivisione avviata: apri Smart Share sulla TV per sfogliarla." : `Errore: ${result.error}`);
 }
 
 async function tvLoadLocal() {
@@ -441,6 +475,7 @@ function updatePcShareUI(status) {
     if (!statusEl || !button) return;
     if (status.pc_share_active) {
         statusEl.textContent = `condivisa: ${status.pc_share_folder}`;
+        statusEl.title = status.pc_share_folder;
         statusEl.classList.add("connected");
         button.textContent = "FERMA CONDIVISIONE";
     } else {
@@ -961,6 +996,7 @@ async function loadStatus() {
         if (currentView === "sistema") renderSistemaView(status);
         if (currentView === "tv") {
             document.getElementById("tvPairStatus").textContent = status.tv_paired ? "TV abbinata" : "TV non abbinata";
+            if (currentTvSubview === "condividi") updateTvShareUI(status);
         }
     } catch (e) {
         document.getElementById("systemStatus").textContent = "NON RAGGIUNGIBILE";

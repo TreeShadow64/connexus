@@ -510,6 +510,10 @@ body {
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--amber);
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .fz-quickbar-status.connected {
@@ -561,6 +565,20 @@ body {
     padding: 10px 14px;
     border-bottom: 1px solid rgba(111, 227, 255, 0.14);
     word-break: break-all;
+    flex-wrap: wrap;
+    row-gap: 6px;
+}
+
+/* Quando l'header e' una riga flex (percorso + stato condivisione + pulsante,
+   vedi Trasferimento File/Condividi con la TV), il primo span e' il percorso:
+   deve accorciarsi con "..." invece di spingere il resto fuori dal pannello
+   o farsi spezzare parola per parola dal word-break del genitore. */
+.fz-pane-header > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    word-break: normal;
 }
 
 .fz-pane-split {

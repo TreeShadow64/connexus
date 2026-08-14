@@ -27,6 +27,7 @@ import psutil
 import auth
 import dashboard_server
 import dlna_cast
+import dlna_server
 import file_browser
 import firebase_relay
 import ftp_server
@@ -103,6 +104,7 @@ shared_devices_lock = threading.Lock()
 PC_SHARE_KEY = "__pc_share__"
 
 pc_ftp_server = None
+dlna_media_server = None
 
 # Stato della webcam UVC visto dalla dashboard PC: e' l'unico dei tre stream
 # (schermo/projector/virtualcam) il cui oggetto vive per la durata di una
@@ -512,6 +514,38 @@ def stop_pc_share():
     with shared_devices_lock:
         shared_devices.pop(PC_SHARE_KEY, None)
     log.info("Condivisione PC fermata")
+    return {"ok": True}
+
+
+def start_tv_share(folder):
+    """A differenza di cast_local_file (spinge UN file alla TV, adesso), qui
+    il PC diventa un vero server DLNA: la TV sfoglia la cartella da sola
+    con la sua app Smart Share, come farebbe con un NAS."""
+    global dlna_media_server
+    folder_path = Path(folder)
+    if not folder_path.is_dir():
+        return {"ok": False, "error": f"Cartella non trovata: {folder}"}
+
+    if dlna_media_server is not None:
+        dlna_media_server.stop()
+
+    server = dlna_server.DlnaMediaServer(folder_path)
+    try:
+        server.start()
+    except OSError as e:
+        dlna_media_server = None
+        return {"ok": False, "error": f"Avvio condivisione DLNA fallito: {e}"}
+    dlna_media_server = server
+    log.info(f"Condivisione DLNA con la TV avviata: {folder_path}")
+    return {"ok": True}
+
+
+def stop_tv_share():
+    global dlna_media_server
+    if dlna_media_server is not None:
+        dlna_media_server.stop()
+        dlna_media_server = None
+    log.info("Condivisione DLNA con la TV fermata")
     return {"ok": True}
 
 
@@ -1233,6 +1267,8 @@ def collect_dashboard_status():
         "tv_paired": bool(_load_webos_config().get("client_key")),
         "pc_share_active": pc_ftp_server is not None and pc_ftp_server.is_active,
         "pc_share_folder": str(pc_ftp_server.root) if pc_ftp_server is not None else None,
+        "tv_share_active": dlna_media_server is not None and dlna_media_server.is_active,
+        "tv_share_folder": str(dlna_media_server.root) if dlna_media_server is not None else None,
         "virtualcam_active": virtualcam_output.is_active,
         "virtualcam_error": virtualcam_output.error,
         "uvccam_active": uvccam_status["active"],
@@ -1318,6 +1354,10 @@ def handle_dashboard_action(action, payload):
         return start_pc_share(payload.get("folder", ""), payload.get("password", ""), bool(payload.get("read_only")))
     if action == "stop_pc_share":
         return stop_pc_share()
+    if action == "start_tv_share":
+        return start_tv_share(payload.get("folder", ""))
+    if action == "stop_tv_share":
+        return stop_tv_share()
     return {"ok": False, "error": "azione sconosciuta"}
 
 

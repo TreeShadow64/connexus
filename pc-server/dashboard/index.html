@@ -186,7 +186,13 @@
                         </select>
                     </div>
                     <div class="fz-pane" style="max-height:420px;">
-                        <div class="fz-pane-header">Sito locale: <span id="tvLocalPath">/</span></div>
+                        <div class="fz-pane-header" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                            <span>Sito locale: <span id="tvLocalPath">/</span></span>
+                            <span style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                                <span class="fz-quickbar-status" id="tvShareStatus">non condivisa</span>
+                                <button class="hud-button" id="tvShareButton" onclick="toggleTvShare()" style="padding:5px 10px; font-size:10px;">CONDIVIDI QUESTA CARTELLA</button>
+                            </span>
+                        </div>
                         <div class="fz-pane-split">
                             <div class="fz-pane-tree" id="tvLocalTree"><!-- popolate via JS --></div>
                             <div class="fz-pane-list">
