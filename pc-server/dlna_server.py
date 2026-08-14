@@ -24,6 +24,8 @@ from pathlib import Path
 from urllib.parse import quote, unquote
 from xml.sax.saxutils import escape
 
+import cv2
+
 import dlna_cast
 
 log = logging.getLogger("hub-server")
@@ -189,6 +191,10 @@ class DlnaMediaServer:
         self._httpd = None
         self._ssdp_socket = None
         self._local_ip = None
+        # In memoria, per la durata della condivisione: rigenerare un
+        # fotogramma ad ogni richiesta sarebbe lento (va aperto il video
+        # con OpenCV), e la miniatura di un file non cambia mentre e' condiviso.
+        self._thumb_cache = {}
 
     @property
     def is_active(self):
@@ -242,6 +248,8 @@ class DlnaMediaServer:
                     self._send_xml(_CM_SCPD)
                 elif self.path.startswith("/dlna/content/"):
                     media_server._serve_content(self, send_body=True)
+                elif self.path.startswith("/dlna/thumbnail/"):
+                    media_server._serve_thumbnail(self, send_body=True)
                 else:
                     self.send_error(404)
 
@@ -252,6 +260,8 @@ class DlnaMediaServer:
                 # a riprodurre anche se poi la GET funzionerebbe benissimo.
                 if self.path.startswith("/dlna/content/"):
                     media_server._serve_content(self, send_body=False)
+                elif self.path.startswith("/dlna/thumbnail/"):
+                    media_server._serve_thumbnail(self, send_body=False)
                 else:
                     self.send_error(404)
 
@@ -340,6 +350,68 @@ class DlnaMediaServer:
                     remaining -= len(chunk)
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass  # la TV ha interrotto la riproduzione/il seek
+
+    def _serve_thumbnail(self, handler, send_body=True):
+        encoded = handler.path[len("/dlna/thumbnail/"):]
+        rel_path = _decode_id(unquote(encoded))
+        file_path = (self.root / rel_path).resolve()
+        try:
+            in_root = file_path.is_relative_to(self.root)
+        except (OSError, RuntimeError):
+            in_root = False
+        if not in_root or not file_path.is_file():
+            handler.send_error(404)
+            return
+
+        cache_key = str(file_path)
+        if cache_key not in self._thumb_cache:
+            self._thumb_cache[cache_key] = self._generate_thumbnail(file_path)
+        data = self._thumb_cache[cache_key]
+        if data is None:
+            handler.send_error(404)
+            return
+
+        try:
+            handler.send_response(200)
+            handler.send_header("Content-Type", "image/jpeg")
+            handler.send_header("Content-Length", str(len(data)))
+            handler.end_headers()
+            if send_body:
+                handler.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+
+    @staticmethod
+    def _generate_thumbnail(file_path):
+        """Un fotogramma preso un po' dentro il video (non il primo: spesso
+        e' un logo o uno schermo nero) e ridotto a una miniatura, cosi' ogni
+        riquadro in Smart Share mostra un'anteprima vera invece di un'icona
+        generica. None se il file non e' un video leggibile da OpenCV (o non
+        e' affatto un video): in quel caso niente miniatura per quel file,
+        non un errore che blocca la condivisione."""
+        cap = None
+        try:
+            cap = cv2.VideoCapture(str(file_path))
+            if not cap.isOpened():
+                return None
+            frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+            if frame_count > 0:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, int(frame_count * 0.1))
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                return None
+            height, width = frame.shape[:2]
+            if width > 320:
+                new_width = 320
+                new_height = int(height * (new_width / width))
+                frame = cv2.resize(frame, (new_width, new_height))
+            ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            return buf.tobytes() if ok else None
+        except Exception:
+            return None
+        finally:
+            if cap is not None:
+                cap.release()
 
     def _handle_cd_control(self, handler):
         length = int(handler.headers.get("Content-Length", 0))
@@ -447,11 +519,22 @@ class DlnaMediaServer:
         size = path_obj.stat().st_size
         content_url = f"http://{self._local_ip}:{HTTP_PORT}/dlna/content/{quote(object_id)}"
         protocol_info = f"http-get:*:{mime}:{_dlna_content_features()}"
+
+        thumb_xml = ""
+        if mime.startswith("video/") or mime.startswith("image/"):
+            thumb_url = f"http://{self._local_ip}:{HTTP_PORT}/dlna/thumbnail/{quote(object_id)}"
+            thumb_protocol_info = f"http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_TN;DLNA.ORG_FLAGS={_DLNA_FLAGS}"
+            thumb_xml = (
+                f"<upnp:albumArtURI>{escape(thumb_url)}</upnp:albumArtURI>"
+                f'<res protocolInfo="{thumb_protocol_info}">{escape(thumb_url)}</res>'
+            )
+
         return (
             f'<item id="{object_id}" parentID="{parent_id}" restricted="1">'
             f"<dc:title>{title}</dc:title>"
             f"<upnp:class>{upnp_class}</upnp:class>"
             f'<res protocolInfo="{protocol_info}" size="{size}">{escape(content_url)}</res>'
+            f"{thumb_xml}"
             "</item>"
         )
 
