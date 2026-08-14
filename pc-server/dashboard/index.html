@@ -50,6 +50,7 @@
     <div class="app-body">
         <nav class="app-nav">
             <div class="app-nav-item active" data-view="overview">Overview</div>
+            <div class="app-nav-item" data-view="tv">TV</div>
             <div class="app-nav-item" data-view="rete">File &amp; Rete</div>
             <div class="app-nav-item" data-view="sistema">Impostazioni</div>
             <div class="app-nav-item" data-view="trova">Trova Dispositivo</div>
@@ -82,6 +83,125 @@
                 </div>
 
                 <div class="hud-grid-3" id="statCards"><!-- popolate via JS --></div>
+            </section>
+
+            <section class="view" id="view-tv" hidden>
+                <div class="hud-subnav">
+                    <div class="hud-subnav-item active" data-subview="telecomando">Telecomando</div>
+                    <div class="hud-subnav-item" data-subview="condividi">Condividi con la TV</div>
+                </div>
+
+                <div class="subview" id="subview-telecomando">
+                    <div class="fz-quickbar">
+                        <span class="fz-quickbar-label" id="tvPairStatus">TV non abbinata</span>
+                        <button class="hud-button" onclick="tvPair()" style="margin-left:auto;">ABBINA TV</button>
+                    </div>
+
+                    <div class="tv-remote-grid">
+                        <div class="tv-remote-col">
+                            <div class="hud-eyebrow" style="margin-bottom:8px;">alimentazione &amp; volume</div>
+                            <div class="tv-btn-row">
+                                <button class="hud-button danger" onclick="tvCommand('power_off')">POWER</button>
+                                <button class="hud-button" onclick="tvCommand('mute')">MUTE</button>
+                            </div>
+                            <div class="tv-btn-row">
+                                <button class="hud-button" onclick="tvCommand('volume_down')">VOL −</button>
+                                <button class="hud-button" onclick="tvCommand('volume_up')">VOL +</button>
+                            </div>
+                            <div class="tv-btn-row">
+                                <button class="hud-button" onclick="tvCommand('channel_down')">CH −</button>
+                                <button class="hud-button" onclick="tvCommand('channel_up')">CH +</button>
+                            </div>
+
+                            <div class="hud-eyebrow" style="margin:14px 0 8px;">direzionale</div>
+                            <div class="tv-dpad">
+                                <span></span><button class="hud-button" onclick="tvDpad('up')">▲</button><span></span>
+                                <button class="hud-button" onclick="tvDpad('left')">◀</button>
+                                <button class="hud-button" onclick="tvDpad('enter')">OK</button>
+                                <button class="hud-button" onclick="tvDpad('right')">▶</button>
+                                <span></span><button class="hud-button" onclick="tvDpad('down')">▼</button><span></span>
+                            </div>
+                            <div class="tv-btn-row" style="margin-top:8px;">
+                                <button class="hud-button" onclick="tvDpad('home')">HOME</button>
+                                <button class="hud-button" onclick="tvDpad('back')">INDIETRO</button>
+                            </div>
+                        </div>
+
+                        <div class="tv-remote-col">
+                            <div class="hud-eyebrow" style="margin-bottom:8px;">tastierino</div>
+                            <div class="tv-numpad">
+                                <button class="hud-button" onclick="tvButton('1')">1</button>
+                                <button class="hud-button" onclick="tvButton('2')">2</button>
+                                <button class="hud-button" onclick="tvButton('3')">3</button>
+                                <button class="hud-button" onclick="tvButton('4')">4</button>
+                                <button class="hud-button" onclick="tvButton('5')">5</button>
+                                <button class="hud-button" onclick="tvButton('6')">6</button>
+                                <button class="hud-button" onclick="tvButton('7')">7</button>
+                                <button class="hud-button" onclick="tvButton('8')">8</button>
+                                <button class="hud-button" onclick="tvButton('9')">9</button>
+                                <button class="hud-button" onclick="tvButton('list')">LIST</button>
+                                <button class="hud-button" onclick="tvButton('0')">0</button>
+                                <button class="hud-button" onclick="tvButton('dash')">—</button>
+                            </div>
+
+                            <div class="hud-eyebrow" style="margin:14px 0 8px;">tasti colorati</div>
+                            <div class="tv-btn-row">
+                                <button class="tv-color-btn" style="background:#e5484d" onclick="tvButton('red')"></button>
+                                <button class="tv-color-btn" style="background:#3dffa0" onclick="tvButton('green')"></button>
+                                <button class="tv-color-btn" style="background:#ffc24b" onclick="tvButton('yellow')"></button>
+                                <button class="tv-color-btn" style="background:#4b9fff" onclick="tvButton('blue')"></button>
+                            </div>
+
+                            <div class="hud-eyebrow" style="margin:14px 0 8px;">extra</div>
+                            <div class="tv-btn-row">
+                                <button class="hud-button" onclick="tvButton('menu')">MENU</button>
+                                <button class="hud-button" onclick="tvButton('guide')">GUIDE</button>
+                                <button class="hud-button" onclick="tvButton('info')">INFO</button>
+                                <button class="hud-button" onclick="tvButton('exit')">EXIT</button>
+                            </div>
+                            <div class="tv-btn-row">
+                                <button class="hud-button" onclick="tvButton('play')">▶ PLAY</button>
+                                <button class="hud-button" onclick="tvButton('pause')">❚❚ PAUSA</button>
+                            </div>
+                        </div>
+
+                        <div class="tv-remote-col">
+                            <div class="hud-eyebrow" style="margin-bottom:8px;">app installate</div>
+                            <button class="hud-button" onclick="tvRefreshApps()" style="margin-bottom:10px;">AGGIORNA APP</button>
+                            <div class="tv-app-grid" id="tvAppGrid"><!-- popolate via JS --></div>
+
+                            <div class="hud-eyebrow" style="margin:14px 0 8px;">sorgenti</div>
+                            <button class="hud-button" onclick="tvRefreshInputs()">SORGENTI</button>
+                            <div id="tvInputList" style="margin-top:8px;"></div>
+                        </div>
+                    </div>
+                    <div class="fz-status" id="tvStatus"></div>
+                </div>
+
+                <div class="subview" id="subview-condividi" hidden>
+                    <div class="fz-quickbar">
+                        <button class="hud-button" onclick="tvCastDiscover()">CERCA TV IN RETE</button>
+                        <select id="tvRendererSelect">
+                            <option value="">— nessuna TV trovata —</option>
+                        </select>
+                    </div>
+                    <div class="fz-pane" style="max-height:420px;">
+                        <div class="fz-pane-header">Sito locale: <span id="tvLocalPath">/</span></div>
+                        <div class="fz-pane-split">
+                            <div class="fz-pane-tree" id="tvLocalTree"><!-- popolate via JS --></div>
+                            <div class="fz-pane-list">
+                                <div class="fz-pane-cols">
+                                    <span class="fz-col-name">Nome file</span>
+                                    <span class="fz-col-size">Dimensione</span>
+                                    <span class="fz-col-date">Ultima modifica</span>
+                                </div>
+                                <div class="fz-pane-body" id="tvLocalEntries"><!-- popolate via JS --></div>
+                            </div>
+                        </div>
+                        <div class="fz-pane-footer" id="tvLocalFooter">0 file e 0 cartelle</div>
+                    </div>
+                    <div class="fz-status" id="tvCastStatus"></div>
+                </div>
             </section>
 
             <section class="view" id="view-rete" hidden>

@@ -41,6 +41,7 @@ function switchView(name) {
         devicesPollHandle = null;
     }
     if (name === "rete") showReteSubview(currentReteSubview);
+    if (name === "tv") showTvSubview(currentTvSubview);
 }
 
 document.querySelectorAll(".app-nav-item").forEach(el => {
@@ -123,6 +124,195 @@ function renderTopbar(status) {
 
 // ---------- webcam ----------
 
+
+// ---------- TV ----------
+
+let currentTvSubview = "telecomando";
+let tvLocalPath = "";
+let tvRenderers = [];
+
+document.querySelectorAll("#view-tv .hud-subnav-item").forEach(el => {
+    el.addEventListener("click", () => showTvSubview(el.dataset.subview));
+});
+
+function showTvSubview(name) {
+    currentTvSubview = name;
+    document.querySelectorAll("#view-tv .hud-subnav-item").forEach(el => {
+        el.classList.toggle("active", el.dataset.subview === name);
+    });
+    document.getElementById("subview-telecomando").hidden = name !== "telecomando";
+    document.getElementById("subview-condividi").hidden = name !== "condividi";
+    if (name === "condividi" && document.getElementById("tvLocalEntries").children.length === 0) tvLoadLocal();
+}
+
+function tvSetStatus(text) {
+    document.getElementById("tvStatus").textContent = text;
+}
+
+async function tvPair() {
+    tvSetStatus("Abbinamento in corso... accetta il prompt sullo schermo della TV");
+    const result = await runAction("tv_pair");
+    tvSetStatus(result.message || (result.ok === false ? "Errore" : ""));
+    if (lastStatus) { lastStatus.tv_paired = true; }
+    document.getElementById("tvPairStatus").textContent = result.type === "tv_ok" ? "TV abbinata" : "Abbinamento non riuscito";
+}
+
+async function tvCommand(action) {
+    const result = await runAction("tv_command", { action });
+    tvSetStatus(result.message || "");
+}
+
+async function tvDpad(direction) {
+    const result = await runAction("tv_dpad", { direction });
+    tvSetStatus(result.message || "");
+}
+
+async function tvButton(name) {
+    const result = await runAction("tv_button", { name });
+    tvSetStatus(result.message || "");
+}
+
+async function tvRefreshApps() {
+    tvSetStatus("Ricerca app installate...");
+    const result = await runAction("tv_list_apps");
+    if (result.type !== "tv_apps") { tvSetStatus(result.message || "Errore nel leggere le app"); return; }
+    const grid = document.getElementById("tvAppGrid");
+    grid.innerHTML = result.apps.map(app => `
+        <div class="tv-app-tile" onclick='tvLaunchApp(${JSON.stringify(app.id)})' title="${app.title}">
+            ${app.icon ? `<img src="${app.icon}" />` : `<div style="width:40px;height:40px;background:var(--bg-panel);"></div>`}
+            <span>${app.title}</span>
+        </div>
+    `).join("");
+    tvSetStatus(`Trovate ${result.apps.length} app.`);
+}
+
+async function tvLaunchApp(appId) {
+    const result = await runAction("tv_launch_app", { app_id: appId });
+    tvSetStatus(result.message || "");
+}
+
+async function tvRefreshInputs() {
+    tvSetStatus("Ricerca sorgenti...");
+    const result = await runAction("tv_list_inputs");
+    if (result.type !== "tv_inputs") { tvSetStatus(result.message || "Errore nel leggere le sorgenti"); return; }
+    const container = document.getElementById("tvInputList");
+    if (result.inputs.length === 0) {
+        container.innerHTML = `<div class="hud-mono" style="font-size:11px; color:var(--text-faint);">nessuna sorgente trovata</div>`;
+        return;
+    }
+    container.innerHTML = result.inputs.map(inp => `
+        <div class="tv-input-row" onclick='tvSwitchInput(${JSON.stringify(inp.id)})'>${inp.label}</div>
+    `).join("");
+}
+
+async function tvSwitchInput(inputId) {
+    const result = await runAction("tv_switch_input", { input_id: inputId });
+    tvSetStatus(result.message || "");
+}
+
+// ---------- TV: condividi con la TV (DLNA) ----------
+
+async function tvCastDiscover() {
+    tvSetStatus2("Ricerca TV in corso...");
+    const result = await runAction("cast_discover");
+    tvRenderers = result.renderers || [];
+    const select = document.getElementById("tvRendererSelect");
+    select.innerHTML = tvRenderers.length
+        ? tvRenderers.map((name, i) => `<option value="${i}">${name}</option>`).join("")
+        : `<option value="">— nessuna TV trovata —</option>`;
+    tvSetStatus2(`Trovate ${tvRenderers.length} TV.`);
+}
+
+function tvSetStatus2(text) {
+    document.getElementById("tvCastStatus").textContent = text;
+}
+
+async function tvLoadLocal() {
+    document.getElementById("tvLocalPath").textContent = tvLocalPath || "unità disco";
+    document.getElementById("tvLocalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--text-dim);">caricamento...</div>`;
+    try {
+        const res = await fetch(`/local/list?path=${encodeURIComponent(tvLocalPath)}`);
+        const result = await res.json();
+        if (!result.ok) throw new Error(result.error || "errore sconosciuto");
+        renderTvEntries(result.entries, tvLocalPath !== "");
+        tvLoadTree(result.entries);
+    } catch (e) {
+        document.getElementById("tvLocalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--red);">Errore: ${e.message}</div>`;
+    }
+}
+
+function renderTvEntries(entries, canGoUp) {
+    const container = document.getElementById("tvLocalEntries");
+    const rows = [];
+    if (canGoUp) rows.push(`<div class="ftp-entry" onclick="tvLocalUp()"><span class="ftp-entry-name">.. (su)</span></div>`);
+    if (entries.length === 0) rows.push(`<div class="hud-mono" style="font-size:12px; color:var(--text-faint); padding:8px 4px;">cartella vuota</div>`);
+    let fileCount = 0, dirCount = 0, totalSize = 0;
+    for (const entry of entries) {
+        if (entry.is_dir) dirCount++; else { fileCount++; totalSize += entry.size; }
+        const icon = entry.is_dir ? "▤" : "▢";
+        const sizeText = entry.is_dir ? "" : formatBytes(entry.size);
+        const nav = entry.is_dir ? `onclick='tvLocalOpen(${JSON.stringify(entry.name)})'` : "";
+        const arrow = !entry.is_dir
+            ? `<span class="ftp-entry-arrow" title="casta su TV" onclick='tvCastFile(${JSON.stringify(entry.name)}); event.stopPropagation();'>📺</span>`
+            : "";
+        rows.push(`
+            <div class="ftp-entry" ${nav}>
+                <span class="ftp-entry-name">${icon} ${entry.name}</span>
+                <span class="ftp-entry-size">${sizeText}</span>
+                <span class="ftp-entry-date">${entry.modified || ""}</span>
+                ${arrow}
+            </div>
+        `);
+    }
+    container.innerHTML = rows.join("");
+    document.getElementById("tvLocalFooter").textContent =
+        `${fileCount} file e ${dirCount} cartelle — ${formatBytes(totalSize)} totali`;
+}
+
+function tvLoadTree(childEntries) {
+    const container = document.getElementById("tvLocalTree");
+    const parent = fzLocalParentPath(tvLocalPath);
+    if (parent === null) {
+        renderFzTreeFlat(container, childEntries, "tvLocalOpen");
+        return;
+    }
+    fetch(`/local/list?path=${encodeURIComponent(parent)}`)
+        .then(res => res.json())
+        .then(result => {
+            if (!result.ok) throw new Error(result.error);
+            renderFzTreeNested(container, result.entries, fzLocalCurrentName(tvLocalPath), childEntries, "tvLocalTreeGo", "tvLocalOpen");
+        })
+        .catch(() => { container.innerHTML = `<div class="fz-tree-node" style="color:var(--red); cursor:default;">errore</div>`; });
+}
+
+function tvLocalOpen(name) {
+    if (!tvLocalPath) tvLocalPath = name;
+    else if (tvLocalPath.endsWith("\\")) tvLocalPath += name;
+    else tvLocalPath += "\\" + name;
+    tvLoadLocal();
+}
+
+function tvLocalUp() {
+    tvLocalPath = fzLocalParentPath(tvLocalPath) || "";
+    tvLoadLocal();
+}
+
+function tvLocalTreeGo(name) {
+    const parent = fzLocalParentPath(tvLocalPath);
+    if (parent === null) tvLocalPath = name;
+    else if (parent === "" || parent.endsWith("\\")) tvLocalPath = parent + name;
+    else tvLocalPath = parent + "\\" + name;
+    tvLoadLocal();
+}
+
+async function tvCastFile(filename) {
+    const select = document.getElementById("tvRendererSelect");
+    if (!select.value) { tvSetStatus2("Cerca e scegli prima una TV."); return; }
+    const localPath = tvLocalPath.endsWith("\\") ? tvLocalPath + filename : `${tvLocalPath}\\${filename}`;
+    tvSetStatus2(`Invio di ${filename} alla TV...`);
+    const result = await runAction("cast_local_file", { local_path: localPath, renderer_index: parseInt(select.value, 10) });
+    tvSetStatus2(result.message || "");
+}
 
 // ---------- file & rete ----------
 
@@ -687,6 +877,9 @@ async function loadStatus() {
         if (currentView === "overview") renderStatCards(status);
         if (currentView === "rete" && currentReteSubview === "filezilla") fzRefreshShares();
         if (currentView === "sistema") renderSistemaView(status);
+        if (currentView === "tv") {
+            document.getElementById("tvPairStatus").textContent = status.tv_paired ? "TV abbinata" : "TV non abbinata";
+        }
     } catch (e) {
         document.getElementById("systemStatus").textContent = "NON RAGGIUNGIBILE";
         document.getElementById("systemDot").className = "hud-dot off";

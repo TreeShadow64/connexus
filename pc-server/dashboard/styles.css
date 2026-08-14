@@ -690,3 +690,103 @@ body {
     text-align: right;
 }
 
+/* -------- TV: telecomando + condivisione -------- */
+.tv-remote-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+@media (max-width: 900px) {
+    .tv-remote-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.tv-remote-col {
+    background: var(--bg-panel-raised);
+    border: 1px solid rgba(111, 227, 255, 0.18);
+    padding: 14px;
+}
+
+.tv-btn-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.tv-btn-row .hud-button {
+    flex: 1;
+}
+
+.tv-dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    max-width: 200px;
+}
+
+.tv-numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    max-width: 200px;
+}
+
+.tv-color-btn {
+    flex: 1;
+    height: 26px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    cursor: pointer;
+}
+
+.tv-color-btn:hover {
+    filter: brightness(1.2);
+}
+
+.tv-app-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    max-height: 140px;
+    overflow-y: auto;
+}
+
+.tv-app-tile {
+    width: 52px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.tv-app-tile img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: var(--bg-panel);
+}
+
+.tv-app-tile span {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--text-faint);
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tv-input-row {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    padding: 6px 8px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(111, 227, 255, 0.06);
+}
+
+.tv-input-row:hover {
+    color: var(--cyan-glow);
+}
+

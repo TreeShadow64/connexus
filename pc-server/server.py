@@ -10,7 +10,7 @@ import threading
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 import cv2
 import numpy as np
@@ -462,6 +462,50 @@ def cast_play(filename, renderer_index):
 
     if state in ("PLAYING", "PAUSED_PLAYBACK", "TRANSITIONING"):
         log.info(f"Riproduzione di {filename} confermata su {renderer['name']}")
+        return {"type": "cast_ok", "message": f"In riproduzione su {renderer['name']}"}
+    else:
+        log.warning(f"Stato dopo Play: {state}")
+        return {"type": "cast_error", "message": f"Comando inviato ma stato TV: {state}"}
+
+
+def cast_local_file(local_path, renderer_index):
+    """Come cast_play, ma per un file qualunque scelto dal browser locale di
+    'Trasferimento File' invece che uno gia' presente in media/: si appoggia
+    all'endpoint /fs/download (stesso usato da 'Gestione file' sul telefono)
+    per servirlo al volo, senza doverlo prima copiare in media/."""
+    if renderer_index >= len(last_renderers):
+        return {"type": "cast_error", "message": "Nessun TV trovata, premi prima CERCA TV"}
+
+    file_path = Path(local_path)
+    if not file_path.is_file():
+        return {"type": "cast_error", "message": f"File non trovato: {local_path}"}
+
+    mime = mimetypes.guess_type(str(file_path))[0] or "video/mp4"
+    media_url = (
+        f"http://{dlna_cast.get_local_ip()}:{MEDIA_HTTP_PORT}/fs/download"
+        f"?token={auth.TOKEN}&path={quote(str(file_path))}"
+    )
+    renderer = last_renderers[renderer_index]
+    control_url = renderer["control_url"]
+
+    try:
+        dlna_cast.set_av_transport_uri(control_url, media_url, file_path.name, mime)
+    except Exception as e:
+        log.warning(f"SetAVTransportURI fallito: {e}")
+        return {"type": "cast_error", "message": f"Impossibile caricare il file su {renderer['name']}"}
+
+    try:
+        dlna_cast.play(control_url)
+    except Exception as e:
+        log.info(f"Play senza risposta ({e}), verifico lo stato reale...")
+
+    try:
+        state = dlna_cast.get_transport_info(control_url)
+    except Exception:
+        state = "SCONOSCIUTO"
+
+    if state in ("PLAYING", "PAUSED_PLAYBACK", "TRANSITIONING"):
+        log.info(f"Riproduzione di {file_path.name} confermata su {renderer['name']}")
         return {"type": "cast_ok", "message": f"In riproduzione su {renderer['name']}"}
     else:
         log.warning(f"Stato dopo Play: {state}")
@@ -1139,6 +1183,7 @@ def collect_dashboard_status():
         "projector_active": projector_viewer.is_active,
         "remote_screen_blocked": remote_screen_blocked,
         "remote_webcam_blocked": remote_webcam_blocked,
+        "tv_paired": bool(_load_webos_config().get("client_key")),
         "virtualcam_active": virtualcam_output.is_active,
         "virtualcam_error": virtualcam_output.error,
         "uvccam_active": uvccam_status["active"],
@@ -1198,6 +1243,28 @@ def handle_dashboard_action(action, payload):
         except Exception as e:
             log.warning(f"Aggiornamento PC fallito: {e}")
             return {"ok": False, "error": str(e)}
+    if action in (
+        "tv_pair", "tv_command", "tv_dpad", "tv_button",
+        "tv_list_apps", "tv_launch_app", "tv_list_inputs", "tv_switch_input",
+    ):
+        # handle_async_command() gira sul loop asyncio principale (chiamate
+        # di rete verso la TV): questa azione arriva pero' dal thread
+        # sincrono del server della dashboard, quindi va schedulata li' e
+        # aspettata, stesso schema gia' usato per i blocchi accesso remoto.
+        data = dict(payload)
+        data["type"] = action
+        future = asyncio.run_coroutine_threadsafe(handle_async_command(data), _main_loop)
+        return future.result(timeout=15)
+    if action == "cast_discover":
+        return cast_discover()
+    if action == "cast_play":
+        return cast_play(payload.get("file", ""), payload.get("renderer_index", 0))
+    if action == "cast_local_file":
+        return cast_local_file(payload.get("local_path", ""), payload.get("renderer_index", 0))
+    if action == "cast_pause":
+        return cast_transport("pause", payload.get("renderer_index", 0))
+    if action == "cast_stop":
+        return cast_transport("stop", payload.get("renderer_index", 0))
     return {"ok": False, "error": "azione sconosciuta"}
 
 
