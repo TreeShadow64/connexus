@@ -227,7 +227,13 @@
                     <div class="fz-log" id="fzLog"></div>
                     <div class="fz-panes">
                         <div class="fz-pane">
-                            <div class="fz-pane-header">Sito locale: <span id="fzLocalPath">/</span></div>
+                            <div class="fz-pane-header" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                                <span>Sito locale: <span id="fzLocalPath">/</span></span>
+                                <span style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                                    <span class="fz-quickbar-status" id="pcShareStatus">non condivisa</span>
+                                    <button class="hud-button" id="pcShareButton" onclick="togglePcShare()" style="padding:5px 10px; font-size:10px;">CONDIVIDI QUESTA CARTELLA</button>
+                                </span>
+                            </div>
                             <div class="fz-pane-split">
                                 <div class="fz-pane-tree" id="fzLocalTree"><!-- popolate via JS --></div>
                                 <div class="fz-pane-list">
@@ -271,6 +277,17 @@
             </section>
 
         </main>
+    </div>
+</div>
+
+<div class="hud-dialog-backdrop" id="hudDialogBackdrop" hidden>
+    <div class="hud-dialog">
+        <div class="hud-dialog-message" id="hudDialogMessage"></div>
+        <input type="text" class="hud-dialog-input" id="hudDialogInput" hidden />
+        <div class="hud-dialog-actions">
+            <button class="hud-button" id="hudDialogCancel">ANNULLA</button>
+            <button class="hud-button" id="hudDialogOk">OK</button>
+        </div>
     </div>
 </div>
 

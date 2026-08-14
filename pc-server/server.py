@@ -29,6 +29,7 @@ import dashboard_server
 import dlna_cast
 import file_browser
 import firebase_relay
+import ftp_server
 import service_client
 import wol
 import mouse_guard
@@ -92,12 +93,16 @@ SERVER_START_TIME = time.time()
 connected_clients = set()
 
 # Registro delle cartelle condivise attualmente attive: chiave = id della
-# connessione websocket che condivide, cosi' si rimuove da sola alla
-# disconnessione. Serve solo a rendere visibile agli altri device chi sta
-# condividendo cosa in questo momento (non trasporta i file: quelli passano
-# per l'FTP del telefono).
+# connessione websocket che condivide (o "__pc_share__" per la condivisione
+# del PC stesso, che non e' un client websocket), cosi' si rimuove da sola
+# alla disconnessione per i telefoni. Serve solo a rendere visibile agli
+# altri device chi sta condividendo cosa in questo momento (non trasporta
+# i file: quelli passano per l'FTP di chi condivide).
 shared_devices = {}
 shared_devices_lock = threading.Lock()
+PC_SHARE_KEY = "__pc_share__"
+
+pc_ftp_server = None
 
 # Stato della webcam UVC visto dalla dashboard PC: e' l'unico dei tre stream
 # (schermo/projector/virtualcam) il cui oggetto vive per la durata di una
@@ -466,6 +471,48 @@ def cast_play(filename, renderer_index):
     else:
         log.warning(f"Stato dopo Play: {state}")
         return {"type": "cast_error", "message": f"Comando inviato ma stato TV: {state}"}
+
+
+def start_pc_share(folder, password, read_only):
+    """Il PC diventa server FTP per una cartella scelta, simmetrico a come
+    il telefono condivide gia' se stesso: appare nell'elenco condivisioni
+    che i telefoni vedono con 'list_shares', stesso protocollo minimale."""
+    global pc_ftp_server
+    folder_path = Path(folder)
+    if not folder_path.is_dir():
+        return {"ok": False, "error": f"Cartella non trovata: {folder}"}
+
+    if pc_ftp_server is not None:
+        pc_ftp_server.stop()
+
+    server = ftp_server.PcFtpServer(folder_path, password=password, read_only=read_only)
+    try:
+        server.start()
+    except OSError as e:
+        pc_ftp_server = None
+        return {"ok": False, "error": f"Avvio condivisione fallito: {e}"}
+    pc_ftp_server = server
+
+    with shared_devices_lock:
+        shared_devices[PC_SHARE_KEY] = {
+            "name": platform.node() or "PC",
+            "folder": str(folder_path),
+            "ip": dlna_cast.get_local_ip(),
+            "ftp_port": ftp_server.CONTROL_PORT,
+        }
+    log.info(f"Condivisione PC avviata: {folder_path} ({'sola lettura' if read_only else 'lettura/scrittura'})")
+    return {"ok": True}
+
+
+def stop_pc_share():
+    global pc_ftp_server
+    if pc_ftp_server is not None:
+        pc_ftp_server.stop()
+        pc_ftp_server = None
+    with shared_devices_lock:
+        shared_devices.pop(PC_SHARE_KEY, None)
+    log.info("Condivisione PC fermata")
+    return {"ok": True}
 
 
 def cast_local_file(local_path, renderer_index):
@@ -1184,6 +1231,8 @@ def collect_dashboard_status():
         "remote_screen_blocked": remote_screen_blocked,
         "remote_webcam_blocked": remote_webcam_blocked,
         "tv_paired": bool(_load_webos_config().get("client_key")),
+        "pc_share_active": pc_ftp_server is not None and pc_ftp_server.is_active,
+        "pc_share_folder": str(pc_ftp_server.root) if pc_ftp_server is not None else None,
         "virtualcam_active": virtualcam_output.is_active,
         "virtualcam_error": virtualcam_output.error,
         "uvccam_active": uvccam_status["active"],
@@ -1265,6 +1314,10 @@ def handle_dashboard_action(action, payload):
         return cast_transport("pause", payload.get("renderer_index", 0))
     if action == "cast_stop":
         return cast_transport("stop", payload.get("renderer_index", 0))
+    if action == "start_pc_share":
+        return start_pc_share(payload.get("folder", ""), payload.get("password", ""), bool(payload.get("read_only")))
+    if action == "stop_pc_share":
+        return stop_pc_share()
     return {"ok": False, "error": "azione sconosciuta"}
 
 

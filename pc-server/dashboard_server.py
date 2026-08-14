@@ -71,6 +71,13 @@ def start(status_provider, action_handler):
         def log_message(self, format, *args):
             pass  # la console e' gia' piena dei log del server principale
 
+        def end_headers(self):
+            # senza questo, il webview (e i browser normali) puo' tenersi in
+            # cache html/css/js anche dopo un aggiornamento dell'app, mostrando
+            # l'interfaccia vecchia finche' non si forza un reload pulito.
+            self.send_header("Cache-Control", "no-cache")
+            super().end_headers()
+
         def do_GET(self):
             if self.path == "/status.json":
                 _send_json(self, _status_provider())

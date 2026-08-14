@@ -790,3 +790,62 @@ body {
     color: var(--cyan-glow);
 }
 
+/* -------- dialogo generico (sostituisce prompt/confirm/alert nativi:
+   pywebview non li implementa in modo affidabile) -------- */
+.hud-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 10, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.hud-dialog-backdrop[hidden] {
+    display: none;
+}
+
+.hud-dialog {
+    width: min(360px, 88vw);
+    background: var(--bg-panel-raised);
+    border: 1px solid rgba(111, 227, 255, 0.35);
+    box-shadow: 0 0 24px rgba(111, 227, 255, 0.15);
+    clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+    padding: 20px;
+}
+
+.hud-dialog-message {
+    font-family: var(--font-hud);
+    font-size: 14px;
+    color: var(--white);
+    margin-bottom: 14px;
+    line-height: 1.4;
+}
+
+.hud-dialog-input {
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--white);
+    background: rgba(111, 227, 255, 0.06);
+    border: 1px solid rgba(111, 227, 255, 0.3);
+    padding: 9px 10px;
+    margin-bottom: 16px;
+    outline: none;
+}
+
+.hud-dialog-input:focus {
+    border-color: var(--cyan-glow);
+}
+
+.hud-dialog-input[hidden] {
+    display: none;
+}
+
+.hud-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+

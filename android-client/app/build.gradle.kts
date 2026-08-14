@@ -12,8 +12,8 @@ android {
         applicationId = "com.hubpc.client"
         minSdk = 24
         targetSdk = 34
-        versionCode = 31
-        versionName = "0.31"
+        versionCode = 34
+        versionName = "0.34"
     }
 
     buildTypes {
@@ -57,6 +57,9 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("androidx.mediarouter:mediarouter:1.7.0")
     implementation("com.google.android.gms:play-services-cast-framework:21.5.0")
+
+    // Client FTP per sfogliare una condivisione del PC (Trasferimento File / Fase 2).
+    implementation("commons-net:commons-net:3.11.1")
 
     // Firestore trascina grpc/guava; senza questa dipendenza diretta la vera
     // classe ListenableFuture non finisce sul classpath di compilazione (solo

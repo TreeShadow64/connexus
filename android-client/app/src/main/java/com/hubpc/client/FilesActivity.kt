@@ -527,12 +527,48 @@ class FilesActivity : AppCompatActivity() {
         }
         for (i in 0 until devices.length()) {
             val device = devices.optJSONObject(i) ?: continue
-            val name = device.optString("name", "dispositivo")
-            val folder = device.optString("folder", "")
-            val ip = device.optString("ip", "")
-            val port = device.optInt("ftp_port", 0)
-            makeInfoRow("$name — \"$folder\"  ftp://$ip:$port").let { binding.layoutSharedDevices.addView(it) }
+            binding.layoutSharedDevices.addView(makeSharedDeviceRow(device))
         }
+    }
+
+    private fun makeSharedDeviceRow(device: JSONObject): Button {
+        val name = device.optString("name", "dispositivo")
+        val folder = device.optString("folder", "")
+        val deviceIp = device.optString("ip", "")
+        val port = device.optInt("ftp_port", 0)
+        val button = Button(this)
+        button.text = "🌐 $name — \"$folder\"  ftp://$deviceIp:$port"
+        button.isAllCaps = false
+        button.typeface = Typeface.MONOSPACE
+        button.textSize = 12f
+        button.gravity = Gravity.START or Gravity.CENTER_VERTICAL
+        button.setPadding(28, 24, 28, 24)
+        button.setTextColor(getColor(R.color.text_primary))
+        button.setBackgroundResource(R.drawable.bg_module_card)
+        button.setOnClickListener { openSharedDevicePasswordPrompt(name, deviceIp, port) }
+        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        params.bottomMargin = 8
+        button.layoutParams = params
+        return button
+    }
+
+    private fun openSharedDevicePasswordPrompt(name: String, deviceIp: String, port: Int) {
+        val input = android.widget.EditText(this)
+        input.hint = "password (lascia vuoto se non richiesta)"
+        input.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        AlertDialog.Builder(this)
+            .setTitle("Accedi a \"$name\"")
+            .setView(input)
+            .setPositiveButton("Sfoglia") { _, _ ->
+                val browserIntent = Intent(this, FtpBrowserActivity::class.java)
+                    .putExtra("ftp_ip", deviceIp)
+                    .putExtra("ftp_port", port)
+                    .putExtra("share_name", name)
+                    .putExtra("ftp_password", input.text.toString())
+                startActivity(browserIntent)
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
     }
 
     private fun makeInfoRow(text: String): TextView {

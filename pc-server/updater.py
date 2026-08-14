@@ -31,7 +31,7 @@ from paths import app_dir
 
 log = logging.getLogger("hub-server")
 
-APP_VERSION = "0.33"
+APP_VERSION = "0.34"
 RELEASES_API = "https://api.github.com/repos/TreeShadow64/connexus/releases/latest"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ConnexusPC/1.0"
 

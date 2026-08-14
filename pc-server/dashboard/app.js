@@ -23,6 +23,55 @@ function tickClock() {
         `${DAY_NAMES[now.getDay()]} ${String(now.getDate()).padStart(2, "0")} ${MONTH_NAMES[now.getMonth()]}`;
 }
 
+// ---------- dialogo generico (sostituisce prompt/confirm/alert nativi:
+// pywebview non li implementa in modo affidabile) ----------
+
+function hudDialog(message, { isPrompt = false, defaultValue = "", okOnly = false } = {}) {
+    return new Promise(resolve => {
+        const backdrop = document.getElementById("hudDialogBackdrop");
+        const input = document.getElementById("hudDialogInput");
+        const cancelBtn = document.getElementById("hudDialogCancel");
+        const okBtn = document.getElementById("hudDialogOk");
+
+        document.getElementById("hudDialogMessage").textContent = message;
+        input.hidden = !isPrompt;
+        input.value = defaultValue;
+        cancelBtn.hidden = okOnly;
+
+        const close = value => {
+            backdrop.hidden = true;
+            cancelBtn.removeEventListener("click", onCancel);
+            okBtn.removeEventListener("click", onOk);
+            input.removeEventListener("keydown", onKeydown);
+            resolve(value);
+        };
+        const onCancel = () => close(isPrompt ? null : false);
+        const onOk = () => close(isPrompt ? input.value : true);
+        const onKeydown = e => {
+            if (e.key === "Enter") onOk();
+            if (e.key === "Escape") onCancel();
+        };
+
+        cancelBtn.addEventListener("click", onCancel);
+        okBtn.addEventListener("click", onOk);
+        input.addEventListener("keydown", onKeydown);
+        backdrop.hidden = false;
+        if (isPrompt) { input.focus(); input.select(); }
+    });
+}
+
+function hudPrompt(message, defaultValue = "") {
+    return hudDialog(message, { isPrompt: true, defaultValue });
+}
+
+function hudConfirm(message) {
+    return hudDialog(message);
+}
+
+function hudAlert(message) {
+    return hudDialog(message, { okOnly: true });
+}
+
 // ---------- navigazione ----------
 
 function switchView(name) {
@@ -336,6 +385,7 @@ function showReteSubview(name) {
     if (name === "attivita") loadTransferLog();
     if (name === "filezilla") {
         fzRefreshShares();
+        if (lastStatus) updatePcShareUI(lastStatus);
         if (document.getElementById("fzLocalEntries").children.length === 0) fzLoadLocal();
     }
 }
@@ -385,6 +435,38 @@ function fzLogAdd(text, isError) {
     el.scrollTop = el.scrollHeight;
 }
 
+function updatePcShareUI(status) {
+    const statusEl = document.getElementById("pcShareStatus");
+    const button = document.getElementById("pcShareButton");
+    if (!statusEl || !button) return;
+    if (status.pc_share_active) {
+        statusEl.textContent = `condivisa: ${status.pc_share_folder}`;
+        statusEl.classList.add("connected");
+        button.textContent = "FERMA CONDIVISIONE";
+    } else {
+        statusEl.textContent = "non condivisa";
+        statusEl.classList.remove("connected");
+        button.textContent = "CONDIVIDI QUESTA CARTELLA";
+    }
+}
+
+async function togglePcShare() {
+    if (lastStatus && lastStatus.pc_share_active) {
+        const result = await runAction("stop_pc_share");
+        setFzStatus(result.ok ? "Condivisione fermata." : `Errore: ${result.error}`);
+        return;
+    }
+    if (!fzLocalPath) {
+        setFzStatus("Naviga prima dentro una cartella da condividere (non si può condividere l'elenco unità).");
+        return;
+    }
+    const password = await hudPrompt("Password per questa condivisione (lascia vuoto per accesso libero):", "");
+    if (password === null) return;
+    setFzStatus(`Condivisione di ${fzLocalPath}...`);
+    const result = await runAction("start_pc_share", { folder: fzLocalPath, password, read_only: false });
+    setFzStatus(result.ok ? "Condivisione avviata." : `Errore: ${result.error}`);
+}
+
 function fzRefreshShares() {
     const status = lastStatus || { shares: [] };
     const select = document.getElementById("fzShareSelect");
@@ -396,7 +478,7 @@ function fzRefreshShares() {
     if ([...select.options].some(o => o.value === currentValue)) select.value = currentValue;
 }
 
-function fzOnShareSelected() {
+async function fzOnShareSelected() {
     const select = document.getElementById("fzShareSelect");
     const shares = JSON.parse(select.dataset.shares || "[]");
     const share = shares[parseInt(select.value, 10)];
@@ -413,7 +495,7 @@ function fzOnShareSelected() {
     const cacheKey = `${share.ip}:${share.ftp_port}`;
     let password = fzPasswordCache[cacheKey];
     if (password === undefined) {
-        password = prompt(`Password FTP per "${share.name || "dispositivo"}":`);
+        password = await hudPrompt(`Password FTP per "${share.name || "dispositivo"}":`);
         if (password === null) { select.value = ""; return; }
         fzPasswordCache[cacheKey] = password;
     }
@@ -692,12 +774,12 @@ async function checkForUpdate() {
 }
 
 async function applyUpdate(zipUrl) {
-    if (!confirm("Il PC si riavvierà per installare l'aggiornamento. Continuare?")) return;
+    if (!await hudConfirm("Il PC si riavvierà per installare l'aggiornamento. Continuare?")) return;
     updateCheckResult = { applying: true };
     renderSistemaView(lastStatus);
     const result = await runAction("start_update", { zip_url: zipUrl });
     if (!result.ok) {
-        alert("Aggiornamento fallito: " + (result.error || "errore sconosciuto"));
+        await hudAlert("Aggiornamento fallito: " + (result.error || "errore sconosciuto"));
         updateCheckResult = null;
         renderSistemaView(lastStatus);
     }
@@ -853,15 +935,15 @@ function renderDeviceRow(device, ownId) {
     `;
 }
 
-function renameDevicePrompt(deviceId, currentName) {
-    const name = prompt("Rinomina dispositivo:", currentName);
+async function renameDevicePrompt(deviceId, currentName) {
+    const name = await hudPrompt("Rinomina dispositivo:", currentName);
     if (name && name.trim()) {
         runAction("rename_device", { device_id: deviceId, name: name.trim() }).then(loadDevices);
     }
 }
 
-function removeDevicePrompt(deviceId, name) {
-    if (confirm(`Rimuovere "${name}" dall'elenco?`)) {
+async function removeDevicePrompt(deviceId, name) {
+    if (await hudConfirm(`Rimuovere "${name}" dall'elenco?`)) {
         runAction("remove_device", { device_id: deviceId }).then(loadDevices);
     }
 }
@@ -875,7 +957,7 @@ async function loadStatus() {
         lastStatus = status;
         renderTopbar(status);
         if (currentView === "overview") renderStatCards(status);
-        if (currentView === "rete" && currentReteSubview === "filezilla") fzRefreshShares();
+        if (currentView === "rete" && currentReteSubview === "filezilla") { fzRefreshShares(); updatePcShareUI(status); }
         if (currentView === "sistema") renderSistemaView(status);
         if (currentView === "tv") {
             document.getElementById("tvPairStatus").textContent = status.tv_paired ? "TV abbinata" : "TV non abbinata";
