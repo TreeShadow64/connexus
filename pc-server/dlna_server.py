@@ -12,6 +12,7 @@ scelta dell'interfaccia al sistema operativo: senza, con una VPN come
 Tailscale installata, gli annunci partirebbero dall'interfaccia sbagliata
 e la TV non ci troverebbe mai (stesso bug gia' risolto in dlna_cast.py)."""
 import base64
+import logging
 import mimetypes
 import re
 import socket
@@ -24,6 +25,8 @@ from urllib.parse import quote, unquote
 from xml.sax.saxutils import escape
 
 import dlna_cast
+
+log = logging.getLogger("hub-server")
 
 SSDP_ADDR = "239.255.255.250"
 SSDP_PORT = 1900
@@ -61,6 +64,19 @@ def _soap_envelope(action_name, service_type, fields):
         f'<s:Body><u:{action_name} xmlns:u="{service_type}">{body}</u:{action_name}></s:Body>'
         "</s:Envelope>"
     )
+
+
+# Flag DLNA standard (lo stesso valore usato da minidlna e altri server
+# minimali per contenuti a cui non si assegna un profilo DLNA specifico):
+# bit "range supported" + "streaming transfer mode" + versione DLNA 1.5.
+# Senza questi, alcune TV (LG webOS in particolare) accettano la richiesta
+# e iniziano a ricevere i dati ma interrompono la connessione dopo pochi
+# secondi perche' non riescono a confermare che il file sia posizionabile.
+_DLNA_FLAGS = "01700000000000000000000000000000"
+
+
+def _dlna_content_features():
+    return f"DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS={_DLNA_FLAGS}"
 
 
 def _upnp_class_for(mime):
@@ -282,6 +298,7 @@ class DlnaMediaServer:
         except (OSError, RuntimeError):
             in_root = False
         if not in_root or not file_path.is_file():
+            log.warning(f"DLNA content non trovato: rel_path={rel_path!r} in_root={in_root}")
             handler.send_error(404)
             return
 
@@ -305,6 +322,8 @@ class DlnaMediaServer:
             handler.send_header("Content-Type", mime)
             handler.send_header("Accept-Ranges", "bytes")
             handler.send_header("Content-Length", str(length))
+            handler.send_header("contentFeatures.dlna.org", _dlna_content_features())
+            handler.send_header("transferMode.dlna.org", "Streaming")
             if status == 206:
                 handler.send_header("Content-Range", f"bytes {start}-{end}/{size}")
             handler.end_headers()
@@ -427,11 +446,12 @@ class DlnaMediaServer:
         upnp_class = _upnp_class_for(mime)
         size = path_obj.stat().st_size
         content_url = f"http://{self._local_ip}:{HTTP_PORT}/dlna/content/{quote(object_id)}"
+        protocol_info = f"http-get:*:{mime}:{_dlna_content_features()}"
         return (
             f'<item id="{object_id}" parentID="{parent_id}" restricted="1">'
             f"<dc:title>{title}</dc:title>"
             f"<upnp:class>{upnp_class}</upnp:class>"
-            f'<res protocolInfo="http-get:*:{mime}:*" size="{size}">{escape(content_url)}</res>'
+            f'<res protocolInfo="{protocol_info}" size="{size}">{escape(content_url)}</res>'
             "</item>"
         )
 
