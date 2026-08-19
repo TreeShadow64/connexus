@@ -20,10 +20,13 @@ import org.apache.commons.net.ftp.FTP
 import org.apache.commons.net.ftp.FTPClient
 import org.apache.commons.net.ftp.FTPFile
 import org.apache.commons.net.ftp.FTPReply
+import org.apache.commons.net.ftp.FTPSClient
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.OutputStream
+import java.security.cert.X509Certificate
+import javax.net.ssl.X509TrustManager
 
 /** Sfoglia una condivisione FTP di un altro dispositivo (oggi solo il PC, che
  * usa lo stesso protocollo minimale del telefono — vedi ftp_server.py).
@@ -82,13 +85,29 @@ class FtpBrowserActivity : AppCompatActivity() {
         loadFolder("")
     }
 
+    /** Certificato auto-firmato (vedi ftp_tls.py/FtpTls.kt): niente CA da
+     * verificare, la cifratura qui serve solo contro chi origlia sulla
+     * stessa LAN, non ad autenticare un'identita' verificabile da terzi. */
+    private object TrustAllManager : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+    }
+
     private fun connectClient(): FTPClient {
-        val client = FTPClient()
+        val client = FTPSClient(false) // false = esplicito: AUTH TLS richiesta dopo il connect, non fin dal primo byte
+        client.trustManager = TrustAllManager
         client.connectTimeout = 8000
         client.connect(host, port)
         if (!FTPReply.isPositiveCompletion(client.replyCode)) {
             client.disconnect()
             throw IOException("connessione rifiutata")
+        }
+        try {
+            client.execPBSZ(0)
+            client.execPROT("P")
+        } catch (e: Exception) {
+            // il server dall'altra parte non supporta AUTH TLS: si continua in chiaro
         }
         if (!client.login("connexus", password)) {
             client.disconnect()

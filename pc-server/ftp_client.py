@@ -1,20 +1,44 @@
 """Client FTP per parlare con il server FTP homemade del telefono
-(FtpServer.kt sull'app Android): stesso sottoinsieme minimale di comandi
-(USER/PASS/PWD/CWD/PASV/LIST/RETR/STOR/QUIT), quindi il modulo standard
-ftplib basta senza configurazioni speciali.
+(FtpServer.kt sull'app Android) o di un altro PC (ftp_server.py): stesso
+sottoinsieme minimale di comandi (USER/PASS/PWD/CWD/PASV/LIST/RETR/STOR/
+REST/QUIT), quindi il modulo standard ftplib basta senza configurazioni
+speciali.
+
+Prova sempre prima AUTH TLS (FTPS esplicito): se il server dall'altra parte
+lo supporta la connessione e' cifrata, altrimenti ftplib.FTP_TLS ricade da
+solo su una sessione in chiaro. Il certificato e' auto-firmato (nessuna CA,
+uso LAN-only), quindi va accettato senza verificarne la catena — verificarla
+darebbe sempre errore e romperebbe la connessione per niente, dato che qui
+la cifratura serve contro chi origlia sulla rete, non ad autenticare
+un'identita' verificabile da terzi.
 
 Ogni funzione apre una connessione nuova e la chiude alla fine invece di
 tenerne una persistente: piu' semplice da usare da un server HTTP senza
 stato (ogni richiesta della dashboard e' indipendente dalle altre) e il
-server del telefono e' comunque pensato per un utilizzo occasionale, non
+server dall'altra parte e' comunque pensato per un utilizzo occasionale, non
 per un flusso continuo di richieste."""
 import ftplib
+import ssl
+
+
+def _unverified_tls_context():
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
 
 
 def _connect(host, port, password, timeout=10):
-    ftp = ftplib.FTP(timeout=timeout)
+    ftp = ftplib.FTP_TLS(context=_unverified_tls_context(), timeout=timeout)
     ftp.connect(host, port, timeout=timeout)
+    try:
+        ftp.auth()
+        tls_ok = True
+    except ftplib.all_errors:
+        tls_ok = False
     ftp.login(user="phone", passwd=password)
+    if tls_ok:
+        ftp.prot_p()
     return ftp
 
 

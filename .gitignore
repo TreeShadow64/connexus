@@ -5,6 +5,8 @@ pc-server/auth_config.json
 pc-server/device_id.json
 pc-server/webos_config.json
 pc-server/parsec_config.json
+pc-server/ftp_cert.pem
+pc-server/ftp_key.pem
 pc-server/media/
 pc-server/__pycache__/
 pc-server/build/
