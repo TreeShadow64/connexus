@@ -10,6 +10,7 @@ pc-server/__pycache__/
 pc-server/build/
 pc-server/dist/
 pc-server/*.spec
+pc-server/venv/
 
 # Android build
 android-client/.gradle/

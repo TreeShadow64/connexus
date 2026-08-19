@@ -50,7 +50,13 @@ FIRESTORE_BASE = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJEC
 
 ALARM_TIMEOUT_S = 120
 HEARTBEAT_INTERVAL_S = 60
-POLL_INTERVAL_S = 6
+# 6s (il valore originale) genera ~14.400 letture/giorno per PC lasciato
+# acceso in tray: con piu' di un PC nel gruppo, o l'app aperta per piu'
+# giorni di fila, basta da sola a mangiare la quota gratuita giornaliera
+# di Firestore (50.000 letture) senza che nessuno abbia davvero usato
+# "Trova dispositivo" — da qui gli errori 429 visti nei log. 20s scala il
+# consumo di ~3 volte restando comunque reattivo per un allarme/localizza.
+POLL_INTERVAL_S = 20
 
 _enabled = False
 _uid = None

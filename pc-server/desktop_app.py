@@ -39,8 +39,20 @@ def run_server():
     asyncio.run(server.main())
 
 
+def _asset_path(*parts):
+    """Percorso di una risorsa bundlata, sia in sviluppo (pc-server/assets/...)
+    sia impacchettata con PyInstaller (dentro sys._MEIPASS)."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, "assets", *parts)
+
+
 def make_tray_image():
-    """Lo stesso anello ciano del logo della dashboard, ridotto a icona."""
+    """Icona della tray: usa tray.png se presente, altrimenti un placeholder
+    disegnato a runtime (cosi' l'app parte comunque se manca l'asset)."""
+    tray_path = _asset_path("tray.png")
+    if os.path.isfile(tray_path):
+        return Image.open(tray_path)
+
     size = 64
     img = Image.new("RGBA", (size, size), (3, 6, 8, 255))
     draw = ImageDraw.Draw(img)
