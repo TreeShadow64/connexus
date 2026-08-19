@@ -23,6 +23,7 @@ android-client/build/
 *.apk
 *.jks
 *.keystore
+android-client/app/keystore.properties
 
 # Cloudflare Worker (ha gia' il proprio .gitignore per node_modules/.wrangler/.dev.vars/.cf_token)
 

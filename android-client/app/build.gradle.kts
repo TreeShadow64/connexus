@@ -1,7 +1,19 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
+}
+
+// La password della keystore di release NON va scritta qui: questo file e'
+// pubblico su GitHub, keystore.properties invece e' escluso da .gitignore
+// (come il file .keystore stesso) e resta solo sulla macchina di chi builda.
+val keystorePropertiesFile = file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
 
 android {
@@ -12,13 +24,27 @@ android {
         applicationId = "com.hubpc.client"
         minSdk = 24
         targetSdk = 34
-        versionCode = 34
-        versionName = "0.34"
+        versionCode = 36
+        versionName = "0.36"
+    }
+
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
