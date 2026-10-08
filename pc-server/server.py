@@ -36,6 +36,7 @@ from core import wol
 from remote_input import mouse_guard
 from streaming import screen_stream
 from core import updater
+from casting import webos_discovery
 from casting import webos_remote
 from core.paths import app_dir
 
@@ -278,19 +279,103 @@ def _save_webos_client_key(client_key):
     WEBOS_CONFIG_PATH.write_text(json.dumps(config, indent=4))
 
 
+def _save_webos_config(config):
+    WEBOS_CONFIG_PATH.write_text(json.dumps(config, indent=4))
+
+
+async def _tv_discover():
+    tvs = await asyncio.to_thread(webos_discovery.discover)
+    config = _load_webos_config()
+    return {"type": "tv_found", "tvs": tvs,
+            "current_ip": config.get("tv_ip", ""), "current_name": config.get("tv_name", "")}
+
+
+def _tv_set(ip, uuid="", name=""):
+    """Sceglie la TV da controllare. La chiave di abbinamento vale solo per la
+    TV che l'ha emessa: se si passa a un'altra TV va rifatto l'abbinamento."""
+    ip = str(ip or "").strip()
+    if not webos_discovery.is_valid_tv_ip(ip):
+        return {"type": "tv_error", "message": "Indirizzo IP non valido: serve un indirizzo della rete di casa (es. 192.168.1.20)"}
+    config = _load_webos_config()
+    same_tv = (uuid and uuid == config.get("tv_uuid")) or (not uuid and ip == config.get("tv_ip"))
+    if not same_tv:
+        config.pop("client_key", None)
+    config["tv_ip"] = ip
+    if uuid:
+        config["tv_uuid"] = uuid
+    if name:
+        config["tv_name"] = name
+    _save_webos_config(config)
+    log.info(f"TV selezionata: {name or '?'} ({ip})")
+    return {"type": "tv_ok", "message": f"TV selezionata: {name or ip}", "paired": bool(config.get("client_key"))}
+
+
+_tv_heal_retry_at = 0.0
+
+
+async def _tv_reachable(ip):
+    for port in (3001, 3000):
+        try:
+            _, writer = await asyncio.wait_for(asyncio.open_connection(ip, port), 1.0)
+            writer.close()
+            return True
+        except (OSError, asyncio.TimeoutError):
+            continue
+    return False
+
+
+async def _heal_tv_ip(config):
+    """Il router puo' assegnare alla TV un altro IP: se quello salvato non
+    risponde si rilancia la ricerca e si ritrova la stessa TV dal suo UUID."""
+    global _tv_heal_retry_at
+    ip = config["tv_ip"]
+    if await _tv_reachable(ip):
+        return ip
+    uuid = config.get("tv_uuid")
+    if not uuid or time.monotonic() < _tv_heal_retry_at:
+        return ip
+    for tv in await asyncio.to_thread(webos_discovery.discover):
+        if tv["uuid"] == uuid and tv["ip"] != ip:
+            config["tv_ip"] = tv["ip"]
+            _save_webos_config(config)
+            log.info(f"TV ritrovata a un nuovo indirizzo: {ip} -> {tv['ip']}")
+            return tv["ip"]
+    _tv_heal_retry_at = time.monotonic() + 30
+    return ip
+
+
+async def _remember_tv_identity(ip):
+    """Per le TV abbinate prima dell'elenco: registra UUID e nome, cosi' potranno
+    essere ritrovate se cambiano indirizzo."""
+    for tv in await asyncio.to_thread(webos_discovery.discover):
+        if tv["ip"] == ip:
+            config = _load_webos_config()
+            config["tv_uuid"], config["tv_name"] = tv["uuid"], tv["name"]
+            _save_webos_config(config)
+            return
+
+
 async def handle_async_command(data):
     """Comandi che richiedono I/O di rete asincrono (telecomando TV via webOS)."""
     cmd = data.get("type")
+    if cmd == "tv_discover":
+        return await _tv_discover()
+    if cmd == "tv_set":
+        return _tv_set(data.get("ip"), data.get("uuid", ""), data.get("name", ""))
+
     config = _load_webos_config()
     tv_ip = config.get("tv_ip", "").strip()
 
     if not tv_ip:
-        return {"type": "tv_error", "message": "Nessun IP TV configurato in webos_config.json"}
+        return {"type": "tv_error", "message": "Nessuna TV scelta: premi ABBINA TV per cercarla sulla rete"}
+    tv_ip = await _heal_tv_ip(config)
 
     if cmd == "tv_pair":
         try:
             client_key = await webos_remote.pair(tv_ip, config.get("client_key") or None)
             _save_webos_client_key(client_key)
+            if not config.get("tv_uuid"):
+                await _remember_tv_identity(tv_ip)
             log.info(f"TV {tv_ip} abbinata con successo")
             return {"type": "tv_ok", "message": "TV abbinata con successo"}
         except Exception as e:
@@ -373,6 +458,7 @@ async def handle_async_command(data):
 ASYNC_COMMANDS = {
     "tv_pair", "tv_command", "tv_dpad", "tv_button",
     "tv_list_apps", "tv_launch_app", "tv_list_inputs", "tv_switch_input",
+    "tv_discover", "tv_set",
 }
 
 
@@ -754,6 +840,29 @@ async def _authenticate(websocket, peer, timeout=10):
     return False
 
 
+async def _run_async_command(websocket, peer, data):
+    try:
+        response = await handle_async_command(data)
+    except Exception as e:
+        log.warning(f"Comando fallito ({_redact_for_log(data)}): {e}")
+        response = {"type": "tv_error", "message": "Errore interno nell'esecuzione del comando"}
+    log.info(f"Comando da {peer}: {_redact_for_log(data)}")
+    if response is not None:
+        try:
+            await websocket.send(json.dumps(response))
+        except websockets.ConnectionClosed:
+            pass
+
+
+_async_tasks = set()
+
+
+def _spawn_async_command(websocket, peer, data):
+    task = asyncio.create_task(_run_async_command(websocket, peer, data))
+    _async_tasks.add(task)
+    task.add_done_callback(_async_tasks.discard)
+
+
 async def handler(websocket):
     peer = websocket.remote_address
     if not await _authenticate(websocket, peer):
@@ -769,11 +878,13 @@ async def handler(websocket):
             except json.JSONDecodeError:
                 log.info(f"Messaggio non JSON da {peer}: {message}")
                 continue
+            if data.get("type") in ASYNC_COMMANDS:
+                # i comandi verso la TV possono impiegare secondi (TV spenta):
+                # non devono bloccare gli altri comandi della stessa connessione
+                _spawn_async_command(websocket, peer, data)
+                continue
             try:
-                if data.get("type") in ASYNC_COMMANDS:
-                    response = await handle_async_command(data)
-                else:
-                    response = await asyncio.to_thread(handle_command, data, id(websocket), peer[0])
+                response = await asyncio.to_thread(handle_command, data, id(websocket), peer[0])
             except Exception as e:
                 log.warning(f"Comando fallito ({_redact_for_log(data)}): {e}")
                 response = {"type": "cast_error", "message": "Errore interno nell'esecuzione del comando"}
@@ -1294,6 +1405,8 @@ def collect_dashboard_status():
         "remote_screen_blocked": remote_screen_blocked,
         "remote_webcam_blocked": remote_webcam_blocked,
         "tv_paired": bool(_load_webos_config().get("client_key")),
+        "tv_ip": _load_webos_config().get("tv_ip", ""),
+        "tv_name": _load_webos_config().get("tv_name", ""),
         "pc_share_active": pc_ftp_server is not None and pc_ftp_server.is_active,
         "pc_share_folder": str(pc_ftp_server.root) if pc_ftp_server is not None else None,
         "tv_share_active": dlna_media_server is not None and dlna_media_server.is_active,
@@ -1360,6 +1473,7 @@ def handle_dashboard_action(action, payload):
     if action in (
         "tv_pair", "tv_command", "tv_dpad", "tv_button",
         "tv_list_apps", "tv_launch_app", "tv_list_inputs", "tv_switch_input",
+        "tv_discover", "tv_set",
     ):
         # handle_async_command() gira sul loop asyncio principale (chiamate
         # di rete verso la TV): questa azione arriva pero' dal thread

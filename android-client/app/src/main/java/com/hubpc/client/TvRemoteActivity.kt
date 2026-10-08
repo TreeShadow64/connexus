@@ -82,8 +82,8 @@ class TvRemoteActivity : AppCompatActivity() {
         setUpGoogleCast()
 
         binding.buttonTvPair.setOnClickListener {
-            sendCommand(JSONObject().put("type", "tv_pair"))
-            log("Abbinamento TV in corso... accetta il prompt sullo schermo della TV")
+            sendCommand(JSONObject().put("type", "tv_discover"))
+            log("Ricerca delle TV sulla rete...")
         }
 
         binding.buttonTvRefreshApps.setOnClickListener {
@@ -414,6 +414,70 @@ class TvRemoteActivity : AppCompatActivity() {
         }.start()
     }
 
+    private var chosenTvName = ""
+
+    private fun chooseTv(ip: String, uuid: String, name: String) {
+        chosenTvName = name.ifEmpty { ip }
+        sendCommand(JSONObject().put("type", "tv_set").put("ip", ip).put("uuid", uuid).put("name", name))
+    }
+
+    /** Elenco delle TV LG trovate sulla rete, con l'IP a mano come riserva. */
+    private fun showTvChooser(found: JSONObject) {
+        val tvs = found.optJSONArray("tvs")
+        val currentIp = found.optString("current_ip")
+        val content = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(Hud.dp(this@TvRemoteActivity, 20), Hud.dp(this@TvRemoteActivity, 8),
+                Hud.dp(this@TvRemoteActivity, 20), 0)
+        }
+        var dialog: androidx.appcompat.app.AlertDialog? = null
+        val count = tvs?.length() ?: 0
+        content.addView(Hud.status(this,
+            if (count > 0) "tocca la TV da controllare"
+            else "nessuna TV LG trovata: accendila e riprova, oppure inserisci l'IP"))
+        for (i in 0 until count) {
+            val tv = tvs!!.getJSONObject(i)
+            val inUse = if (tv.optString("ip") == currentIp) "  [IN USO]" else ""
+            content.addView(Hud.button(this, "${tv.optString("name")} - ${tv.optString("ip")}$inUse") {
+                dialog?.dismiss()
+                chooseTv(tv.optString("ip"), tv.optString("uuid"), tv.optString("name"))
+            }.apply {
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = Hud.dp(this@TvRemoteActivity, 8) }
+            })
+        }
+        val manual = android.widget.EditText(this, null, 0, R.style.Widget_Hud_EditText).apply {
+            hint = "oppure IP a mano (es. 192.168.1.20)"
+            inputType = android.text.InputType.TYPE_CLASS_PHONE
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = Hud.dp(this@TvRemoteActivity, 14) }
+        }
+        content.addView(manual)
+        dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Scegli la TV")
+            .setView(content)
+            .setPositiveButton("USA QUESTO IP", null)
+            .setNegativeButton("ANNULLA", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val ip = manual.text.toString().trim()
+                if (ip.isEmpty()) {
+                    manual.error = "inserisci un indirizzo"
+                } else {
+                    dialog.dismiss()
+                    chooseTv(ip, "", "")
+                }
+            }
+        }
+        dialog.show()
+        log(if (count > 0) "Trovate $count TV." else "Nessuna TV trovata.")
+    }
+
     private fun sendCommand(json: JSONObject) {
         if (!authenticated) {
             log("Non ancora autenticato")
@@ -455,9 +519,24 @@ class TvRemoteActivity : AppCompatActivity() {
                 sendCommand(JSONObject().put("type", "tv_list_apps"))
             }
             "auth_error" -> log("Autenticazione fallita")
+            "tv_found" -> showTvChooser(json)
             "tv_ok" -> {
-                binding.textPairStatus.text = "TV abbinata"
-                log(json.optString("message"))
+                if (json.has("paired")) {
+                    // risposta a tv_set: se la TV ha gia' la chiave non serve riabbinarla
+                    if (json.optBoolean("paired")) {
+                        binding.textPairStatus.text = "TV abbinata: $chosenTvName"
+                        log("$chosenTvName: gia' abbinata, pronta all'uso")
+                        sendCommand(JSONObject().put("type", "tv_list_apps"))
+                    } else {
+                        log("Abbinamento TV in corso... accetta il prompt sullo schermo della TV")
+                        sendCommand(JSONObject().put("type", "tv_pair"))
+                    }
+                } else {
+                    binding.textPairStatus.text =
+                        if (chosenTvName.isNotEmpty()) "TV abbinata: $chosenTvName" else "TV abbinata"
+                    log(json.optString("message"))
+                    sendCommand(JSONObject().put("type", "tv_list_apps"))
+                }
             }
             "tv_error" -> log("Errore TV: ${json.optString("message")}")
             "tv_apps" -> {

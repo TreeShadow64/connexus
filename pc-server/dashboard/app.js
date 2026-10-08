@@ -72,6 +72,62 @@ function hudAlert(message) {
     return hudDialog(message, { okOnly: true });
 }
 
+// Scelta della TV trovata sulla rete (con inserimento manuale dell'IP come riserva)
+function hudChooseTv(found) {
+    return new Promise(resolve => {
+        const backdrop = document.createElement("div");
+        backdrop.className = "hud-dialog-backdrop";
+        const box = document.createElement("div");
+        box.className = "hud-dialog";
+        backdrop.appendChild(box);
+
+        const title = document.createElement("div");
+        title.className = "hud-dialog-message";
+        title.textContent = found.tvs.length
+            ? "Scegli la TV da controllare"
+            : "Nessuna TV LG trovata sulla rete. Accendila e riprova, oppure inserisci l'indirizzo IP.";
+        box.appendChild(title);
+
+        const close = value => { backdrop.remove(); resolve(value); };
+
+        found.tvs.forEach(tv => {
+            const btn = document.createElement("button");
+            btn.className = "hud-button";
+            btn.style.cssText = "display:block; width:100%; text-align:left; margin-bottom:8px;";
+            const current = tv.ip === found.current_ip ? "  [IN USO]" : "";
+            btn.textContent = `${tv.name} — ${tv.ip}${current}`;
+            btn.addEventListener("click", () => close({ ip: tv.ip, uuid: tv.uuid, name: tv.name }));
+            box.appendChild(btn);
+        });
+
+        const input = document.createElement("input");
+        input.className = "hud-dialog-input";
+        input.placeholder = "oppure IP a mano (es. 192.168.1.20)";
+        input.style.marginTop = "6px";
+        box.appendChild(input);
+
+        const actions = document.createElement("div");
+        actions.className = "hud-dialog-actions";
+        const cancel = document.createElement("button");
+        cancel.className = "hud-button";
+        cancel.textContent = "ANNULLA";
+        cancel.addEventListener("click", () => close(null));
+        const useIp = document.createElement("button");
+        useIp.className = "hud-button";
+        useIp.textContent = "USA QUESTO IP";
+        const submitManual = () => { if (input.value.trim()) close({ ip: input.value.trim(), uuid: "", name: "" }); };
+        useIp.addEventListener("click", submitManual);
+        input.addEventListener("keydown", e => {
+            if (e.key === "Enter") submitManual();
+            if (e.key === "Escape") close(null);
+        });
+        actions.append(cancel, useIp);
+        box.appendChild(actions);
+
+        document.body.appendChild(backdrop);
+    });
+}
+
 // ---------- navigazione ----------
 
 function switchView(name) {
@@ -202,11 +258,30 @@ function tvSetStatus(text) {
 }
 
 async function tvPair() {
+    tvSetStatus("Ricerca delle TV sulla rete...");
+    const found = await runAction("tv_discover");
+    if (found.type !== "tv_found") {
+        tvSetStatus(found.message || found.error || "Ricerca delle TV non riuscita");
+        return;
+    }
+    const tv = await hudChooseTv(found);
+    if (!tv) { tvSetStatus(""); return; }
+
+    const chosen = await runAction("tv_set", tv);
+    if (chosen.type !== "tv_ok") { tvSetStatus(chosen.message || "Errore"); return; }
+    if (chosen.paired) {
+        tvSetStatus(`${tv.name || tv.ip}: gia' abbinata, pronta all'uso`);
+        document.getElementById("tvPairStatus").textContent = `TV abbinata: ${tv.name || tv.ip}`;
+        return;
+    }
+
     tvSetStatus("Abbinamento in corso... accetta il prompt sullo schermo della TV");
     const result = await runAction("tv_pair");
     tvSetStatus(result.message || (result.ok === false ? "Errore" : ""));
-    if (lastStatus) { lastStatus.tv_paired = true; }
-    document.getElementById("tvPairStatus").textContent = result.type === "tv_ok" ? "TV abbinata" : "Abbinamento non riuscito";
+    const ok = result.type === "tv_ok";
+    if (ok && lastStatus) { lastStatus.tv_paired = true; }
+    document.getElementById("tvPairStatus").textContent =
+        ok ? `TV abbinata: ${tv.name || tv.ip}` : "Abbinamento non riuscito";
 }
 
 async function tvCommand(action) {
@@ -805,8 +880,29 @@ async function checkForUpdate() {
     updateCheckResult = { checking: true };
     renderSistemaView(lastStatus);
     updateCheckResult = await runAction("check_update");
+    markUpdateAvailable(!!updateCheckResult.update_available);
     renderSistemaView(lastStatus);
 }
+
+// Indicatore ambra su ingranaggio e voce "Impostazioni" quando c'e' una versione nuova
+function markUpdateAvailable(on) {
+    document.getElementById("gearButton").classList.toggle("has-update", on);
+    const nav = document.querySelector('.app-nav-item[data-view="sistema"]');
+    if (nav) nav.classList.toggle("has-update", on);
+}
+
+// Controllo automatico: all'avvio e ogni mezz'ora, senza che l'utente faccia nulla
+const UPDATE_RECHECK_MS = 30 * 60 * 1000;
+async function autoCheckUpdate() {
+    if (updateCheckResult && (updateCheckResult.applying || updateCheckResult.checking)) return;
+    const result = await runAction("check_update");
+    if (updateCheckResult && updateCheckResult.applying) return;
+    updateCheckResult = result;
+    markUpdateAvailable(!!result.update_available);
+    if (currentView === "sistema" && lastStatus) renderSistemaView(lastStatus);
+}
+setTimeout(autoCheckUpdate, 6000);
+setInterval(autoCheckUpdate, UPDATE_RECHECK_MS);
 
 async function applyUpdate(zipUrl) {
     if (!await hudConfirm("Il PC si riavvierà per installare l'aggiornamento. Continuare?")) return;
@@ -995,7 +1091,9 @@ async function loadStatus() {
         if (currentView === "rete" && currentReteSubview === "filezilla") { fzRefreshShares(); updatePcShareUI(status); }
         if (currentView === "sistema") renderSistemaView(status);
         if (currentView === "tv") {
-            document.getElementById("tvPairStatus").textContent = status.tv_paired ? "TV abbinata" : "TV non abbinata";
+            document.getElementById("tvPairStatus").textContent = status.tv_paired
+            ? `TV abbinata: ${status.tv_name || status.tv_ip || ""}`.trim()
+            : (status.tv_ip ? `TV non abbinata (${status.tv_name || status.tv_ip})` : "Nessuna TV scelta");
             if (currentTvSubview === "condividi") updateTvShareUI(status);
         }
     } catch (e) {
