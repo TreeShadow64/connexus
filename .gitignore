@@ -44,3 +44,6 @@ android-client/app/keystore.properties
 # Editor/OS
 .DS_Store
 Thumbs.db
+
+# Log runtime del server/exe
+connexus.log*

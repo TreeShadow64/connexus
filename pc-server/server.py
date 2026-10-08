@@ -59,6 +59,22 @@ MEDIA_DIR.mkdir(exist_ok=True)
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("hub-server")
 
+
+def _enable_file_log():
+    """L'exe non ha console: senza file di log un errore non lascia traccia.
+    connexus.log sta accanto all'exe (ruotato a 1 MB, 2 copie)."""
+    try:
+        from logging.handlers import RotatingFileHandler
+        handler = RotatingFileHandler(app_dir() / "connexus.log", maxBytes=1_000_000,
+                                      backupCount=2, encoding="utf-8")
+        handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s", "%Y-%m-%d %H:%M:%S"))
+        logging.getLogger().addHandler(handler)
+    except OSError:
+        pass
+
+
+_enable_file_log()
+
 mouse = MouseController()
 keyboard = KeyboardController()
 
@@ -153,10 +169,14 @@ _SENSITIVE_LOG_KEYS = {"custom_token", "token"}
 
 def _redact_for_log(data):
     """I comandi via WebSocket includono token (auth, custom_token per
-    'Trova dispositivo'): non vanno mai scritti per intero nei log."""
+    'Trova dispositivo') e il testo digitato dalla tastiera remota (puo'
+    essere una password): non vanno mai scritti per intero nei log."""
     if not isinstance(data, dict):
         return data
-    return {k: ("***" if k in _SENSITIVE_LOG_KEYS else v) for k, v in data.items()}
+    redacted = {k: ("***" if k in _SENSITIVE_LOG_KEYS else v) for k, v in data.items()}
+    if data.get("type") == "text" and "value" in redacted:
+        redacted["value"] = "***"
+    return redacted
 
 
 def handle_command(data, conn_key=None, peer_ip=None):
@@ -245,7 +265,11 @@ def handle_command(data, conn_key=None, peer_ip=None):
 
 
 def _load_webos_config():
-    return json.loads(WEBOS_CONFIG_PATH.read_text())
+    # prima installazione: il file nasce solo all'abbinamento della TV
+    try:
+        return json.loads(WEBOS_CONFIG_PATH.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 def _save_webos_client_key(client_key):
@@ -356,7 +380,10 @@ def launch_parsec():
     if not Path(PARSEC_EXE).exists():
         log.warning(f"Parsec non trovato in {PARSEC_EXE}")
         return
-    peer_id = json.loads(PARSEC_CONFIG_PATH.read_text()).get("peer_id", "").strip()
+    try:
+        peer_id = json.loads(PARSEC_CONFIG_PATH.read_text()).get("peer_id", "").strip()
+    except (OSError, json.JSONDecodeError):
+        peer_id = ""
     if not peer_id:
         log.warning("Nessun peer_id configurato in parsec_config.json")
         return

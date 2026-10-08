@@ -62,7 +62,7 @@ class SystemActivity : AppCompatActivity() {
                 this, "Accesso da fuori casa",
                 "Il PC e' raggiungibile solo dalla rete Wi-Fi di casa, a meno di aprire un varco nel router: " +
                     "in gergo si chiama \"port forwarding\" e si configura dal pannello del router (non da questa app).\n\n" +
-                    "Porte da inoltrare verso l'IP locale del PC: 8765, 8766, 8767, 8768 (protocollo TCP).\n\n" +
+                    "Porte da inoltrare verso l'IP locale del PC: 8765, 8766, 8767, 8768, 8769, 8773 (protocollo TCP).\n\n" +
                     "Poi in Impostazioni aggiungi una nuova connessione usando, al posto dell'IP locale, il tuo IP pubblico " +
                     "o un indirizzo DDNS (es. \"casamia.duckdns.org\") se il tuo IP pubblico cambia nel tempo — il resto " +
                     "dell'app funziona esattamente come in casa, basta scegliere quella connessione."

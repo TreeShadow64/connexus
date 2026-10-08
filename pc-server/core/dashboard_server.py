@@ -80,7 +80,14 @@ def start(status_provider, action_handler):
 
         def do_GET(self):
             if self.path == "/status.json":
-                _send_json(self, _status_provider())
+                try:
+                    status = _status_provider()
+                except Exception:
+                    # senza questo il client riceve solo una connessione chiusa
+                    log.exception("Dashboard: raccolta dello stato fallita")
+                    _send_json(self, {"ok": False, "error": "stato non disponibile"}, status=500)
+                    return
+                _send_json(self, status)
                 return
             if self.path.startswith("/ftp/list"):
                 self._ftp_list()
