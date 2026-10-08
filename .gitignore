@@ -26,6 +26,7 @@ pc-server/venv/
 /media/
 /_internal/
 /Connexus-PC-Hub.exe
+/Connexus-PC-Hub/
 
 # Android build
 android-client/.gradle/
