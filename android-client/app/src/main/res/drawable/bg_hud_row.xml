@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- .hud-row: riga di lista con filetto cyan a sinistra -->
+<drawable xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.hubpc.client.ui.HudShapeDrawable"
+    app:hudFill="@color/panel"
+    app:hudStroke="@color/border"
+    app:hudStrokeWidth="1dp"
+    app:hudLeftBar="@color/cyan_glow"
+    app:hudLeftBarWidth="2dp" />

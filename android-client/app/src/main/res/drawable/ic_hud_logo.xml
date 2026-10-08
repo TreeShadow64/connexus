@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- logo Connexus (stesso disegno del logo SVG nella barra della dashboard PC) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="30dp"
+    android:height="30dp"
+    android:viewportWidth="30"
+    android:viewportHeight="30">
+    <path
+        android:pathData="M2,15a13,13 0 1,0 26,0a13,13 0 1,0 -26,0z"
+        android:strokeColor="#806FE3FF"
+        android:strokeWidth="1" />
+    <path
+        android:pathData="M6,15a9,9 0 1,0 18,0a9,9 0 1,0 -18,0z"
+        android:strokeColor="#6FE3FF"
+        android:strokeWidth="1.4" />
+    <path
+        android:pathData="M13,15a2,2 0 1,0 4,0a2,2 0 1,0 -4,0z"
+        android:fillColor="#6FE3FF" />
+    <path
+        android:pathData="M15,2L15,6M15,24L15,28M2,15L6,15M24,15L28,15"
+        android:strokeColor="#996FE3FF"
+        android:strokeWidth="1" />
+</vector>

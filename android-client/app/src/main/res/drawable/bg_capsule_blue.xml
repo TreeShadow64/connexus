@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/remote_blue" />
-    <corners android:radius="9dp" />
-</shape>
+<!-- .tv-color-btn: barra piatta colorata con bordo bianco 25% -->
+<drawable xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.hubpc.client.ui.HudShapeDrawable"
+    app:hudFill="#4B9FFF"
+    app:hudStroke="#40FFFFFF"
+    app:hudStrokeWidth="1dp" />

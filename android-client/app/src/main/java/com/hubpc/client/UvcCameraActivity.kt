@@ -14,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
 import com.hubpc.client.databinding.ActivityUvcCameraBinding
+import com.hubpc.client.ui.Hud
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -56,7 +57,7 @@ class UvcCameraActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val UVCCAM_PORT = 8770
+        private const val UVCCAM_PORT = 8773
         private const val MIN_ZOOM = 1f
         private const val MAX_ZOOM = 4f
     }
@@ -72,7 +73,7 @@ class UvcCameraActivity : AppCompatActivity() {
         scaleDetector = ScaleGestureDetector(this, ScaleListener())
         binding.imageUvc.setOnTouchListener { _, event -> scaleDetector.onTouchEvent(event); true }
 
-        binding.helpUvcCamera.setOnClickListener {
+        binding.topBar.onHelp = {
             HelpDialogs.show(
                 this, "Camera UVC",
                 "Guarda sul telefono una webcam USB gia' collegata al PC (non la fotocamera del telefono, " +
@@ -161,22 +162,15 @@ class UvcCameraActivity : AppCompatActivity() {
         }
         binding.textUvcStatus.text = "[ ferma ]"
         for (device in list) {
-            val button = Button(this).apply {
-                text = "CAMERA $device"
-                textSize = 11f
-                typeface = Typeface.MONOSPACE
-                isAllCaps = false
-                backgroundTintList = ColorStateList.valueOf(
-                    getColor(if (device == selectedDevice) R.color.cyan else R.color.surface)
-                )
-                setOnClickListener {
-                    selectedDevice = device
-                    renderDevices(devices)
-                    if (running) startStream()
-                }
-                val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                params.marginEnd = 8
-                layoutParams = params
+            val variant = if (device == selectedDevice) Hud.Variant.ACCENT else Hud.Variant.NORMAL
+            val button = Hud.button(this, "CAMERA $device", variant) {
+                selectedDevice = device
+                renderDevices(devices)
+                if (running) startStream()
+            }.apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply { marginEnd = Hud.dp(this@UvcCameraActivity, 8) }
             }
             binding.layoutUvcDevices.addView(button)
         }

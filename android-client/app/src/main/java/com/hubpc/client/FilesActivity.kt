@@ -19,6 +19,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
 import com.hubpc.client.databinding.ActivityFilesBinding
+import com.hubpc.client.ui.Hud
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -116,17 +117,23 @@ class FilesActivity : AppCompatActivity() {
         binding.pageTransfer.visibility = if (tab == Tab.TRANSFER) View.VISIBLE else View.GONE
         binding.pageCleaner.visibility = if (tab == Tab.CLEANER) View.VISIBLE else View.GONE
         binding.pageExplore.visibility = if (tab == Tab.EXPLORE) View.VISIBLE else View.GONE
-        binding.textPageTitle.text = when (tab) {
-            Tab.TRANSFER -> "GESTIONE FILE"
-            Tab.CLEANER -> "PULIZIA"
-            Tab.EXPLORE -> "ESPLORA"
+        binding.topBar.setSubtitle(
+            when (tab) {
+                Tab.TRANSFER -> "TRASFERIMENTO FILE"
+                Tab.CLEANER -> "PULIZIA DELLO SPAZIO"
+                Tab.EXPLORE -> "ESPLORA LA MEMORIA"
+            }
+        )
+        val tabs = listOf(
+            Triple(Tab.TRANSFER, binding.tabTransferLabel, binding.tabTransferLine),
+            Triple(Tab.CLEANER, binding.tabCleanerLabel, binding.tabCleanerLine),
+            Triple(Tab.EXPLORE, binding.tabExploreLabel, binding.tabExploreLine),
+        )
+        for ((t, label, line) in tabs) {
+            val active = t == tab
+            label.setTextColor(getColor(if (active) R.color.cyan_glow else R.color.text_dim))
+            line.setBackgroundColor(if (active) getColor(R.color.cyan_glow) else android.graphics.Color.TRANSPARENT)
         }
-        binding.tabTransferIcon.imageTintList =
-            ColorStateList.valueOf(getColor(if (tab == Tab.TRANSFER) R.color.cyan else R.color.text_faint))
-        binding.tabCleanerIcon.imageTintList =
-            ColorStateList.valueOf(getColor(if (tab == Tab.CLEANER) R.color.cyan else R.color.text_faint))
-        binding.tabExploreIcon.imageTintList =
-            ColorStateList.valueOf(getColor(if (tab == Tab.EXPLORE) R.color.cyan else R.color.text_faint))
         if (tab == Tab.CLEANER && !scannedOnce) scanStorage()
         if (tab == Tab.EXPLORE && !exploreLoaded) {
             exploreLoaded = true
@@ -135,7 +142,7 @@ class FilesActivity : AppCompatActivity() {
     }
 
     private fun wireHelp() {
-        binding.helpFiles.setOnClickListener {
+        binding.topBar.onHelp = {
             when (currentTab) {
                 Tab.TRANSFER -> HelpDialogs.show(
                     this, "Gestione file",
@@ -198,45 +205,13 @@ class FilesActivity : AppCompatActivity() {
         }
     }
 
-    private fun makeUpRow(): Button {
-        val button = Button(this)
-        button.text = "📁 .."
-        button.isAllCaps = false
-        button.typeface = Typeface.MONOSPACE
-        button.textSize = 13f
-        button.gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        button.setPadding(28, 24, 28, 24)
-        button.setTextColor(getColor(R.color.text_faint))
-        button.setBackgroundResource(R.drawable.bg_module_card)
-        button.setOnClickListener { navigateUp() }
-        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        params.bottomMargin = 8
-        button.layoutParams = params
-        return button
-    }
+    private fun makeUpRow(): View = Hud.entryRow(this, "..", true) { navigateUp() }
 
-    private fun makeRow(entry: DocumentFile): Button {
-        val button = Button(this)
+    private fun makeRow(entry: DocumentFile): View {
         val name = entry.name ?: "?"
-        button.text = if (entry.isDirectory) "📁 $name" else "📄 $name  (${formatSize(entry.length())})"
-        button.isAllCaps = false
-        button.typeface = Typeface.MONOSPACE
-        button.textSize = 13f
-        button.gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        button.setPadding(28, 24, 28, 24)
-        button.setTextColor(getColor(R.color.text_primary))
-        button.setBackgroundResource(R.drawable.bg_module_card)
-        button.setOnClickListener {
-            if (entry.isDirectory) {
-                openSubfolder(entry)
-            } else {
-                openFile(entry)
-            }
+        return Hud.entryRow(this, name, entry.isDirectory, formatSize(entry.length())) {
+            if (entry.isDirectory) openSubfolder(entry) else openFile(entry)
         }
-        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        params.bottomMargin = 8
-        button.layoutParams = params
-        return button
     }
 
     private fun openFile(entry: DocumentFile) {
@@ -295,45 +270,12 @@ class FilesActivity : AppCompatActivity() {
         showExploreFolder(folder)
     }
 
-    private fun makeExploreUpRow(): Button {
-        val button = Button(this)
-        button.text = "📁 .."
-        button.isAllCaps = false
-        button.typeface = Typeface.MONOSPACE
-        button.textSize = 13f
-        button.gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        button.setPadding(28, 24, 28, 24)
-        button.setTextColor(getColor(R.color.text_faint))
-        button.setBackgroundResource(R.drawable.bg_module_card)
-        button.setOnClickListener { navigateExploreUp() }
-        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        params.bottomMargin = 8
-        button.layoutParams = params
-        return button
-    }
+    private fun makeExploreUpRow(): View = Hud.entryRow(this, "..", true) { navigateExploreUp() }
 
-    private fun makeExploreRow(entry: File): Button {
-        val button = Button(this)
-        button.text = if (entry.isDirectory) "📁 ${entry.name}" else "📄 ${entry.name}  (${formatSize(entry.length())})"
-        button.isAllCaps = false
-        button.typeface = Typeface.MONOSPACE
-        button.textSize = 13f
-        button.gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        button.setPadding(28, 24, 28, 24)
-        button.setTextColor(getColor(R.color.text_primary))
-        button.setBackgroundResource(R.drawable.bg_module_card)
-        button.setOnClickListener {
-            if (entry.isDirectory) {
-                openExploreSubfolder(entry)
-            } else {
-                openExploreFile(entry)
-            }
+    private fun makeExploreRow(entry: File): View =
+        Hud.entryRow(this, entry.name, entry.isDirectory, formatSize(entry.length())) {
+            if (entry.isDirectory) openExploreSubfolder(entry) else openExploreFile(entry)
         }
-        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        params.bottomMargin = 8
-        button.layoutParams = params
-        return button
-    }
 
     private fun openExploreFile(entry: File) {
         try {
@@ -425,29 +367,14 @@ class FilesActivity : AppCompatActivity() {
     }
 
     private fun makeLargeFileRow(file: File): LinearLayout {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setBackgroundResource(R.drawable.bg_module_card)
-            setPadding(24, 20, 24, 20)
-            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            params.bottomMargin = 8
-            layoutParams = params
-        }
-        val label = TextView(this).apply {
-            text = "${file.name}\n${formatSize(file.length())}"
-            typeface = Typeface.MONOSPACE
-            textSize = 12f
-            setTextColor(getColor(R.color.text_primary))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        row.addView(label)
-        val deleteButton = Button(this).apply {
-            text = "ELIMINA"
-            textSize = 11f
-            setOnClickListener { confirmDeleteFile(file, row) }
-        }
-        row.addView(deleteButton)
+        lateinit var row: LinearLayout
+        row = Hud.row(
+            this,
+            name = file.name,
+            detail = formatSize(file.length()),
+            actionLabel = "ELIMINA",
+            onAction = { confirmDeleteFile(file, row) },
+        )
         return row
     }
 
@@ -531,25 +458,19 @@ class FilesActivity : AppCompatActivity() {
         }
     }
 
-    private fun makeSharedDeviceRow(device: JSONObject): Button {
+    private fun makeSharedDeviceRow(device: JSONObject): View {
         val name = device.optString("name", "dispositivo")
         val folder = device.optString("folder", "")
         val deviceIp = device.optString("ip", "")
         val port = device.optInt("ftp_port", 0)
-        val button = Button(this)
-        button.text = "🌐 $name — \"$folder\"  ftp://$deviceIp:$port"
-        button.isAllCaps = false
-        button.typeface = Typeface.MONOSPACE
-        button.textSize = 12f
-        button.gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        button.setPadding(28, 24, 28, 24)
-        button.setTextColor(getColor(R.color.text_primary))
-        button.setBackgroundResource(R.drawable.bg_module_card)
-        button.setOnClickListener { openSharedDevicePasswordPrompt(name, deviceIp, port) }
-        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        params.bottomMargin = 8
-        button.layoutParams = params
-        return button
+        return Hud.row(
+            this,
+            name = "$name — \"$folder\"",
+            detail = "ftp://$deviceIp:$port",
+            actionLabel = "SFOGLIA",
+            onClick = { openSharedDevicePasswordPrompt(name, deviceIp, port) },
+            onAction = { openSharedDevicePasswordPrompt(name, deviceIp, port) },
+        )
     }
 
     private fun openSharedDevicePasswordPrompt(name: String, deviceIp: String, port: Int) {
@@ -571,15 +492,7 @@ class FilesActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun makeInfoRow(text: String): TextView {
-        val view = TextView(this)
-        view.text = "• $text"
-        view.setTextColor(getColor(R.color.text_faint))
-        view.textSize = 12f
-        view.typeface = Typeface.MONOSPACE
-        view.setPadding(4, 4, 4, 4)
-        return view
-    }
+    private fun makeInfoRow(text: String): TextView = Hud.emptyNote(this, text)
 
     override fun onDestroy() {
         webSocket?.close(1000, "Chiuso")

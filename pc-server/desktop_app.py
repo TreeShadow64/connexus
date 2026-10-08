@@ -107,4 +107,12 @@ if __name__ == "__main__":
         min_size=(820, 600),
     )
     window.events.closing += on_closing
-    webview.start()
+    # Forzato esplicitamente: senza 'gui', pywebview a volte sceglie da solo
+    # il backend legacy 'winforms' (basato su pythonnet/.NET), che nel
+    # pacchetto compilato con PyInstaller fallisce a inizializzarsi
+    # ("Failed to resolve Python.Runtime.Loader.Initialize") perche' i file
+    # di runtime di pythonnet non si risolvono correttamente dentro
+    # sys._MEIPASS. 'edgechromium' usa invece il runtime WebView2 di
+    # sistema (gia' presente perche' Edge e' installato) e non serve
+    # pythonnet per niente.
+    webview.start(gui="edgechromium")

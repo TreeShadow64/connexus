@@ -1,52 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:gravity="center">
+    android:orientation="vertical">
+
+    <com.hubpc.client.ui.HudTopBar
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:hudHelp="true"
+        app:hudMode="sub"
+        app:hudSubtitle="SPECCHIO DAL TELEFONO VERSO IL PC"
+        app:hudTitle="Projector" />
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="24dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.1"
-            android:text="PROJECTOR"
-            android:textColor="@color/cyan"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/helpProjector"
-            style="@style/HelpBadge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="?" />
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/textProjectorStatus"
-        style="@style/Text.Hud.Status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:gravity="center"
-        android:layout_marginBottom="24dp"
-        android:text="Ferma" />
+        android:orientation="vertical"
+        android:padding="20dp">
 
-    <Button
-        android:id="@+id/buttonProjectorToggle"
-        style="@style/Widget.Hud.Button.Accent"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="AVVIA SPECCHIO SUL PC" />
+        <FrameLayout
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_marginBottom="22dp">
 
+            <com.hubpc.client.ui.HudRingView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <TextView
+                android:id="@+id/textProjectorStatus"
+                style="@style/Text.Hud.Value"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:text="Ferma"
+                android:textSize="14sp" />
+        </FrameLayout>
+
+        <Button
+            android:id="@+id/buttonProjectorToggle"
+            style="@style/Widget.Hud.Button.Accent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="AVVIA SPECCHIO SUL PC" />
+    </LinearLayout>
 </LinearLayout>

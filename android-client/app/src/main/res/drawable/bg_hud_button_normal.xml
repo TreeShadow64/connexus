@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- .hud-button: riempimento cyan 6%, bordo cyan 40%, angoli tagliati da 8px -->
+<drawable xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.hubpc.client.ui.HudShapeDrawable"
+    app:hudFill="@color/button_fill"
+    app:hudStroke="@color/border_strong"
+    app:hudStrokeWidth="1dp"
+    app:hudCut="8dp" />

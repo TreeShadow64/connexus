@@ -3,40 +3,24 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
     android:orientation="vertical">
 
-    <LinearLayout
+    <com.hubpc.client.ui.HudTopBar
+        android:id="@+id/topBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:padding="16dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.1"
-            android:text="CAMERA UVC"
-            android:textColor="@color/cyan"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/helpUvcCamera"
-            style="@style/HelpBadge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="?" />
-    </LinearLayout>
+        app:hudHelp="true"
+        app:hudMode="sub"
+        app:hudSubtitle="WEBCAM DEL PC SUL TELEFONO"
+        app:hudTitle="Camera UVC" />
 
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:layout_margin="14dp"
         android:layout_weight="1"
-        android:background="#000000">
+        android:background="@drawable/bg_hud_panel"
+        android:padding="3dp">
 
         <ImageView
             android:id="@+id/imageUvc"
@@ -47,21 +31,21 @@
 
         <TextView
             android:id="@+id/textUvcStatus"
+            style="@style/Text.Hud.Value"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:fontFamily="monospace"
-            android:text="[ ferma ]"
-            android:textColor="@color/cyan"
-            android:textSize="14sp" />
-
+            android:text="[ ferma ]" />
     </FrameLayout>
 
     <LinearLayout
+        style="@style/HudPanelRaised"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:layout_marginBottom="14dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginStart="14dp"
+        android:orientation="vertical">
 
         <TextView
             style="@style/Text.Hud.Eyebrow"
@@ -73,8 +57,8 @@
             android:id="@+id/layoutUvcDevices"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
             android:layout_marginBottom="10dp"
+            android:layout_marginTop="6dp"
             android:orientation="horizontal" />
 
         <Button
@@ -88,7 +72,7 @@
             style="@style/Text.Hud.Eyebrow"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="14dp"
             android:text="luminosita'" />
 
         <SeekBar
@@ -102,7 +86,7 @@
             style="@style/Text.Hud.Eyebrow"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="4dp"
             android:text="contrasto" />
 
         <SeekBar
@@ -111,7 +95,5 @@
             android:layout_height="wrap_content"
             android:max="100"
             android:progress="50" />
-
     </LinearLayout>
-
 </LinearLayout>

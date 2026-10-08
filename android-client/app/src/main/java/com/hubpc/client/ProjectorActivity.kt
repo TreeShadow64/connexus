@@ -86,7 +86,7 @@ class ProjectorActivity : AppCompatActivity() {
 
         projectionManager = getSystemService(MediaProjectionManager::class.java)
 
-        binding.helpProjector.setOnClickListener {
+        binding.topBar.onHelp = {
             HelpDialogs.show(
                 this, "Projector",
                 "Manda lo schermo di questo telefono al PC, che lo mostra in una finestra separata — utile per " +
@@ -108,7 +108,7 @@ class ProjectorActivity : AppCompatActivity() {
         pendingResultCode = resultCode
         pendingData = data
         val serviceIntent = Intent(this, ProjectionService::class.java)
-        startForegroundService(serviceIntent)
+        androidx.core.content.ContextCompat.startForegroundService(this, serviceIntent)
         bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
 

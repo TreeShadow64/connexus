@@ -5,16 +5,15 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.view.Gravity
+import android.view.View
 import android.widget.LinearLayout
-import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.FileProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.hubpc.client.databinding.ActivitySettingsBinding
 import com.hubpc.client.databinding.DialogProfileBinding
+import com.hubpc.client.ui.Hud
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -27,7 +26,6 @@ class SettingsActivity : AppCompatActivity() {
 
     companion object {
         private const val PREFS_NAME = HubApplication.PREFS_NAME
-        private const val PREF_THEME = HubApplication.PREF_THEME
         private const val FEEDBACK_EMAIL = "dario.ryzza@gmail.com"
         private const val RELEASES_API = "https://api.github.com/repos/TreeShadow64/connexus/releases/latest"
     }
@@ -36,8 +34,6 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
         val user = FirebaseAuth.getInstance().currentUser
         binding.textAccountEmail.text = user?.email ?: "accesso non configurato"
@@ -48,11 +44,6 @@ class SettingsActivity : AppCompatActivity() {
             startActivity(intent)
             finish()
         }
-
-        val currentTheme = prefs.getString(PREF_THEME, HubApplication.THEME_DARK)
-        updateThemeToggle(currentTheme == HubApplication.THEME_LIGHT)
-        binding.toggleThemeDark.setOnClickListener { setTheme(HubApplication.THEME_DARK, prefs) }
-        binding.toggleThemeLight.setOnClickListener { setTheme(HubApplication.THEME_LIGHT, prefs) }
 
         binding.helpConnection.setOnClickListener { HelpDialogs.showConnectionHelp(this) }
         binding.buttonAddProfile.setOnClickListener { showProfileDialog(null) }
@@ -77,66 +68,30 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun renderProfiles() {
         binding.profilesContainer.removeAllViews()
-        val density = resources.displayMetrics.density
         for ((index, profile) in profiles.withIndex()) {
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setBackgroundResource(R.drawable.bg_module_card)
-                setPadding((12 * density).toInt(), (10 * density).toInt(), (10 * density).toInt(), (10 * density).toInt())
-                val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                params.topMargin = (6 * density).toInt()
-                layoutParams = params
-                isClickable = true
-                isFocusable = true
-                setOnClickListener { showProfileDialog(index) }
-            }
-
-            val labelColumn = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                layoutParams = params
-            }
-            val nameText = TextView(this).apply {
-                text = if (index == 0) "${profile.name} (primaria)" else profile.name
-                setTextColor(getColor(R.color.cyan))
-                typeface = android.graphics.Typeface.MONOSPACE
-                textSize = 12f
-            }
-            val ipText = TextView(this).apply {
-                text = profile.ip
-                setTextColor(getColor(R.color.text_faint))
-                typeface = android.graphics.Typeface.MONOSPACE
-                textSize = 10f
-            }
-            labelColumn.addView(nameText)
-            labelColumn.addView(ipText)
-            row.addView(labelColumn)
-
-            row.addView(makeRowButton("▲", index > 0) { moveProfile(index, index - 1) })
-            row.addView(makeRowButton("▼", index < profiles.size - 1) { moveProfile(index, index + 1) })
-            row.addView(makeRowButton("×", true, R.color.red) { deleteProfile(index) })
-
+            val row = Hud.row(
+                this,
+                name = if (index == 0) "${profile.name} (primaria)" else profile.name,
+                detail = profile.ip,
+                onClick = { showProfileDialog(index) },
+            )
+            if (index > 0) row.addView(makeRowButton("▲") { moveProfile(index, index - 1) })
+            if (index < profiles.size - 1) row.addView(makeRowButton("▼") { moveProfile(index, index + 1) })
+            row.addView(makeRowButton("×", Hud.Variant.DANGER) { deleteProfile(index) })
             binding.profilesContainer.addView(row)
         }
     }
 
-    private fun makeRowButton(label: String, enabled: Boolean, colorRes: Int = R.color.text_dim, onClick: () -> Unit): TextView {
-        val density = resources.displayMetrics.density
-        return TextView(this).apply {
-            text = label
-            setTextColor(if (enabled) getColor(colorRes) else getColor(R.color.text_faint))
-            textSize = 15f
-            gravity = Gravity.CENTER
-            val size = (34 * density).toInt()
-            val params = LinearLayout.LayoutParams(size, size)
-            params.marginStart = (4 * density).toInt()
-            layoutParams = params
-            isClickable = enabled
-            isFocusable = enabled
-            if (enabled) setOnClickListener { onClick() }
+    private fun makeRowButton(label: String, variant: Hud.Variant = Hud.Variant.NORMAL, onClick: () -> Unit): View =
+        Hud.button(this, label, variant, onClick).apply {
+            minWidth = 0
+            minimumWidth = 0
+            minHeight = Hud.dp(this@SettingsActivity, 34)
+            setPadding(Hud.dp(this@SettingsActivity, 10), 0, Hud.dp(this@SettingsActivity, 10), 0)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { marginStart = Hud.dp(this@SettingsActivity, 6) }
         }
-    }
 
     private fun moveProfile(from: Int, to: Int) {
         val item = profiles.removeAt(from)
@@ -244,27 +199,12 @@ class SettingsActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun setTheme(theme: String, prefs: android.content.SharedPreferences) {
-        prefs.edit().putString(PREF_THEME, theme).apply()
-        AppCompatDelegate.setDefaultNightMode(
-            if (theme == HubApplication.THEME_LIGHT) AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
-        )
-    }
-
-    private fun updateThemeToggle(isLight: Boolean) {
-        binding.toggleThemeDark.background = if (!isLight) getDrawable(R.drawable.bg_toggle_selected) else null
-        binding.toggleThemeDark.setTextColor(getColor(if (!isLight) R.color.bg_deep else R.color.text_faint))
-        binding.toggleThemeLight.background = if (isLight) getDrawable(R.drawable.bg_toggle_selected) else null
-        binding.toggleThemeLight.setTextColor(getColor(if (isLight) R.color.bg_deep else R.color.text_faint))
-    }
-
     private fun confirmReset() {
         AlertDialog.Builder(this)
             .setTitle("Cancella dati salvati")
             .setMessage("Tutte le connessioni salvate e le preferenze verranno cancellate e dovrai rifare la configurazione iniziale. Continuare?")
             .setPositiveButton("Cancella") { _, _ ->
                 getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().clear().apply()
-                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
                 val intent = Intent(this, OnboardingActivity::class.java)
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 startActivity(intent)

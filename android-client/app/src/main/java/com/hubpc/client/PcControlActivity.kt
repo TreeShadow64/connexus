@@ -57,7 +57,7 @@ class PcControlActivity : AppCompatActivity() {
         val ip = intent.getStringExtra("ip").orEmpty()
         val token = intent.getStringExtra("token").orEmpty()
 
-        binding.helpPcControl.setOnClickListener {
+        binding.topBar.onHelp = {
             HelpDialogs.show(
                 this, "Mouse / tastiera",
                 "Trascina il riquadro come un touchpad per muovere il mouse del PC, tocca per fare clic sinistro. " +

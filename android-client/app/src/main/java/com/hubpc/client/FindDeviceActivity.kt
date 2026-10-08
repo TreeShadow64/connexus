@@ -23,6 +23,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import com.hubpc.client.databinding.ActivityFindDeviceBinding
+import com.hubpc.client.ui.Hud
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -81,7 +82,7 @@ class FindDeviceActivity : AppCompatActivity() {
         binding = ActivityFindDeviceBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.helpFindDevice.setOnClickListener {
+        binding.topBar.onHelp = {
             HelpDialogs.show(
                 this, "Trova dispositivo",
                 "Localizza o fa suonare un allarme su qualunque dispositivo registrato sul tuo account, " +
@@ -234,35 +235,32 @@ class FindDeviceActivity : AppCompatActivity() {
 
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundResource(R.drawable.bg_module_card)
-            setPadding(28, 24, 28, 24)
-            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            params.bottomMargin = 10
-            layoutParams = params
+            setBackgroundResource(R.drawable.bg_hud_row)
+            setPadding(Hud.dp(this@FindDeviceActivity, 16), Hud.dp(this@FindDeviceActivity, 12), Hud.dp(this@FindDeviceActivity, 14), Hud.dp(this@FindDeviceActivity, 12))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { bottomMargin = Hud.dp(this@FindDeviceActivity, 10) }
         }
 
         val icon = if (type == "pc") "▣" else "▤"
-        card.addView(TextView(this).apply {
-            text = "$icon  $name${if (isThisPhone) " (questo telefono)" else ""}"
-            typeface = Typeface.MONOSPACE
-            textSize = 13f
-            setTextColor(getColor(R.color.text_primary))
+        card.addView(Hud.title(this, "$icon  $name${if (isThisPhone) " (questo telefono)" else ""}").apply {
+            textSize = 14f
+            isAllCaps = false
+            letterSpacing = 0.02f
             setOnClickListener { renameDevice(deviceId, name) }
         })
 
         if (type == "pc") {
             val lastSeen = (data["lastSeen"] as? com.google.firebase.Timestamp)?.toDate()?.time
             val online = lastSeen != null && (System.currentTimeMillis() - lastSeen) < PC_ONLINE_THRESHOLD_MS
-            card.addView(TextView(this).apply {
-                text = if (online) {
-                    "● online"
-                } else {
-                    "● offline" + (lastSeen?.let { " — ultimo contatto ${dateFormat.format(Date(it))}" } ?: " — mai visto")
-                }
-                typeface = Typeface.MONOSPACE
+            card.addView(Hud.status(
+                this,
+                if (online) "● online" else "● offline" + (lastSeen?.let { " — ultimo contatto ${dateFormat.format(Date(it))}" } ?: " — mai visto"),
+            ).apply {
                 textSize = 10f
-                setTextColor(getColor(if (online) R.color.green else R.color.red))
-                setPadding(0, 4, 0, 0)
+                isAllCaps = false
+                setTextColor(getColor(if (online) R.color.hud_green else R.color.hud_red))
+                setPadding(0, Hud.dp(this@FindDeviceActivity, 4), 0, 0)
             })
         }
 
@@ -274,12 +272,11 @@ class FindDeviceActivity : AppCompatActivity() {
         } else {
             "posizione: non ancora richiesta"
         }
-        val locationRow = TextView(this).apply {
-            text = locationText
-            typeface = Typeface.MONOSPACE
+        val locationRow = Hud.status(this, locationText).apply {
             textSize = 10f
-            setTextColor(getColor(R.color.text_faint))
-            setPadding(0, 8, 0, 12)
+            isAllCaps = false
+            setTextColor(getColor(if (location != null) R.color.cyan_glow else R.color.text_faint))
+            setPadding(0, Hud.dp(this@FindDeviceActivity, 6), 0, Hud.dp(this@FindDeviceActivity, 12))
         }
         card.addView(locationRow)
         if (location != null) {
@@ -298,32 +295,37 @@ class FindDeviceActivity : AppCompatActivity() {
         })
 
         // Il pulsante allarme cambia etichetta subito al tocco (senza aspettare
-        // il giro completo telefono -> Firestore -> PC -> conferma): la vera
-        // stato arriva comunque poco dopo dal listener e ridisegna la card,
+        // il giro completo telefono -> Firestore -> PC -> conferma): lo stato
+        // vero arriva comunque poco dopo dal listener e ridisegna la card,
         // ma l'utente non deve restare a fissare un pulsante che non reagisce.
         lateinit var alarmButton: Button
         alarmButton = smallButton(if (alarmActive) "FERMA ALLARME" else "SUONA ALLARME") {
             val startingAlarm = alarmButton.text == "SUONA ALLARME"
             alarmButton.text = if (startingAlarm) "FERMA ALLARME" else "SUONA ALLARME"
+            styleAlarmButton(alarmButton, startingAlarm)
             sendCommand(deviceId, if (startingAlarm) "alarm_start" else "alarm_stop")
         }
+        styleAlarmButton(alarmButton, alarmActive)
         buttonRow.addView(alarmButton)
         card.addView(buttonRow)
 
         // Non si puo' rimuovere il telefono che si sta usando ora: verrebbe
         // solo ricreato al prossimo avvio dell'app, quindi confonderebbe.
         if (!isThisPhone) {
-            card.addView(smallButton("RIMUOVI") { confirmRemoveDevice(deviceId, name) }.apply {
-                // smallButton() e' pensato per righe orizzontali (peso 1, larghezza
-                // 0dp): qui invece va aggiunto come figlio diretto della card
-                // verticale, quindi serve una larghezza vera e propria.
+            card.addView(Hud.button(this, "RIMUOVI", Hud.Variant.DANGER) { confirmRemoveDevice(deviceId, name) }.apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = 6 }
+                ).apply { topMargin = Hud.dp(this@FindDeviceActivity, 6) }
             })
         }
 
         return card
+    }
+
+    /** Allarme attivo = pulsante rosso (come ".hud-button.danger" sulla dashboard PC). */
+    private fun styleAlarmButton(button: Button, active: Boolean) {
+        button.setBackgroundResource(if (active) R.drawable.bg_hud_button_danger else R.drawable.bg_hud_button)
+        button.setTextColor(getColor(if (active) R.color.hud_red else R.color.cyan_glow))
     }
 
     private fun renameDevice(deviceId: String, currentName: String) {
@@ -366,16 +368,11 @@ class FindDeviceActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun smallButton(label: String, onClick: () -> Unit): Button = Button(this).apply {
-        text = label
-        textSize = 10f
-        isAllCaps = false
-        typeface = Typeface.MONOSPACE
-        setOnClickListener { onClick() }
-        val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        params.marginEnd = 6
-        layoutParams = params
-    }
+    private fun smallButton(label: String, onClick: () -> Unit): Button =
+        Hud.button(this, label, onClick = onClick).apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                .apply { marginEnd = Hud.dp(this@FindDeviceActivity, 6) }
+        }
 
     private fun sendCommand(deviceId: String, type: String) {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
@@ -394,13 +391,7 @@ class FindDeviceActivity : AppCompatActivity() {
         }
     }
 
-    private fun makeInfoRow(text: String): TextView = TextView(this).apply {
-        this.text = "• $text"
-        setTextColor(getColor(R.color.text_faint))
-        textSize = 12f
-        typeface = Typeface.MONOSPACE
-        setPadding(4, 4, 4, 4)
-    }
+    private fun makeInfoRow(text: String): TextView = Hud.emptyNote(this, text)
 
     override fun onDestroy() {
         devicesListener?.remove()

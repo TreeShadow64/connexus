@@ -40,7 +40,11 @@ class SystemActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         binding.editMac.setText(prefs.getString(PREF_MAC, ""))
 
-        binding.helpSystem.setOnClickListener {
+        binding.buttonConnections.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        binding.topBar.onHelp = {
             HelpDialogs.show(
                 this, "Sistema",
                 "AVVIA PROTONVPN: apre l'app ProtonVPN sul telefono — se non e' installata, apre lo Store.\n\n" +
@@ -85,7 +89,7 @@ class SystemActivity : AppCompatActivity() {
             sendCommand(JSONObject().put("type", "service_status"))
         }
 
-        connect(ip, token)
+        if (ip.isNotEmpty() && token.isNotEmpty()) connect(ip, token) else log("PC non collegato: Wake-on-LAN e connessioni restano disponibili")
     }
 
     private fun launchProtonVpn() {

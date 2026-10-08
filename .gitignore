@@ -14,6 +14,19 @@ pc-server/dist/
 pc-server/*.spec
 pc-server/venv/
 
+# Se l'exe impacchettato viene avviato dalla radice del repo genera qui
+# config, chiavi e token: stessi file di pc-server/, mai da committare
+/account_config.json
+/auth_config.json
+/device_id.json
+/webos_config.json
+/parsec_config.json
+/ftp_cert.pem
+/ftp_key.pem
+/media/
+/_internal/
+/Connexus-PC-Hub.exe
+
 # Android build
 android-client/.gradle/
 android-client/.idea/

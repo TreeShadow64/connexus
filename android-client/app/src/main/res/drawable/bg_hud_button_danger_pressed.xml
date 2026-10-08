@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<drawable xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.hubpc.client.ui.HudShapeDrawable"
+    app:hudFill="#2AFF4D5E"
+    app:hudStroke="@color/hud_red"
+    app:hudStrokeWidth="1dp"
+    app:hudCut="8dp" />

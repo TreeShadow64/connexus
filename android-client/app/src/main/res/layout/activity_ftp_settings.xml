@@ -3,113 +3,96 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:orientation="vertical">
 
-    <LinearLayout
+    <com.hubpc.client.ui.HudTopBar
+        android:id="@+id/topBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.1"
-            android:text="FTP"
-            android:textColor="@color/cyan"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/helpFtp"
-            style="@style/HelpBadge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="?" />
-    </LinearLayout>
+        app:hudHelp="true"
+        app:hudMode="sub"
+        app:hudSubtitle="TUTTO LO STORAGE VIA FTP // MOMENTANEA"
+        app:hudTitle="Condivisione FTP" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:gravity="center"
         android:orientation="vertical"
-        android:gravity="center">
+        android:padding="20dp">
 
-        <ImageView
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:src="@drawable/ic_wifi"
-            app:tint="@color/cyan" />
+        <FrameLayout
+            android:layout_width="190dp"
+            android:layout_height="190dp">
+
+            <com.hubpc.client.ui.HudRingView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <ImageView
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_gravity="center"
+                android:contentDescription="Rete"
+                android:src="@drawable/ic_wifi"
+                app:tint="@color/cyan_glow" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/textFtpStatus"
-            style="@style/Text.Hud.Status"
+            style="@style/Text.Hud.Value"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:textSize="14sp"
-            android:text="condivisione disattivata" />
+            android:layout_marginTop="14dp"
+            android:gravity="center"
+            android:text="condivisione disattivata"
+            android:textSize="14sp" />
+
+        <TextView
+            style="@style/Text.Hud.Eyebrow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="26dp"
+            android:text="indirizzo · tocca per copiare" />
 
         <TextView
             android:id="@+id/textFtpAddress"
-            android:layout_width="wrap_content"
+            style="@style/Text.Hud.Value"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:background="@drawable/bg_pill_accent"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_module_card"
             android:clickable="true"
             android:focusable="true"
-            android:fontFamily="monospace"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
-            android:paddingTop="14dp"
-            android:paddingBottom="14dp"
-            android:textColor="@color/bg_deep"
-            android:textStyle="bold"
-            android:text="ftp://..." />
+            android:gravity="center"
+            android:paddingBottom="16dp"
+            android:paddingTop="16dp"
+            android:text="ftp://..."
+            android:textSize="15sp" />
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="22dp"
             android:orientation="horizontal">
 
-            <TextView
+            <Button
                 android:id="@+id/buttonFtpToggle"
-                android:layout_width="wrap_content"
+                style="@style/Widget.Hud.Button.Accent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="12dp"
-                android:background="@drawable/bg_pill_accent"
-                android:clickable="true"
-                android:focusable="true"
-                android:fontFamily="monospace"
-                android:paddingStart="28dp"
-                android:paddingEnd="28dp"
-                android:paddingTop="14dp"
-                android:paddingBottom="14dp"
-                android:textColor="@color/bg_deep"
-                android:textStyle="bold"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
                 android:text="AVVIA" />
 
-            <TextView
+            <Button
                 android:id="@+id/buttonFtpAdvanced"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_pill"
-                android:clickable="true"
-                android:focusable="true"
-                android:fontFamily="monospace"
-                android:paddingStart="28dp"
-                android:paddingEnd="28dp"
-                android:paddingTop="14dp"
-                android:paddingBottom="14dp"
-                android:textColor="@color/text_primary"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
                 android:text="IMPOSTAZIONI" />
         </LinearLayout>
-
     </LinearLayout>
-
 </LinearLayout>

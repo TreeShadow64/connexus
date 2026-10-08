@@ -20,6 +20,7 @@ import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.cast.framework.CastSession
 import com.google.android.gms.cast.framework.SessionManagerListener
 import com.hubpc.client.databinding.ActivityTvRemoteBinding
+import com.hubpc.client.ui.Hud
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -102,13 +103,15 @@ class TvRemoteActivity : AppCompatActivity() {
         onRemoteTab = remote
         binding.pageRemote.visibility = if (remote) android.view.View.VISIBLE else android.view.View.GONE
         binding.pageSmartShare.visibility = if (remote) android.view.View.GONE else android.view.View.VISIBLE
-        binding.textPageTitle.text = if (remote) "TELECOMANDO" else "SMART SHARE"
-        binding.tabRemoteLabel.setTextColor(getColor(if (remote) R.color.cyan else R.color.text_faint))
-        binding.tabSmartShareLabel.setTextColor(getColor(if (remote) R.color.text_faint else R.color.cyan))
+        binding.topBar.setSubtitle(if (remote) "TELECOMANDO" else "CONDIVIDI CON LA TV")
+        binding.tabRemoteLabel.setTextColor(getColor(if (remote) R.color.cyan_glow else R.color.text_dim))
+        binding.tabSmartShareLabel.setTextColor(getColor(if (remote) R.color.text_dim else R.color.cyan_glow))
+        binding.tabRemoteLine.setBackgroundColor(if (remote) getColor(R.color.cyan_glow) else android.graphics.Color.TRANSPARENT)
+        binding.tabSmartShareLine.setBackgroundColor(if (remote) android.graphics.Color.TRANSPARENT else getColor(R.color.cyan_glow))
     }
 
     private fun wireHelp() {
-        binding.helpRemote.setOnClickListener {
+        binding.topBar.onHelp = {
             if (onRemoteTab) {
                 HelpDialogs.show(
                     this, "Telecomando",
@@ -133,7 +136,6 @@ class TvRemoteActivity : AppCompatActivity() {
     private fun wireRemoteButtons() {
         binding.buttonPower.setOnClickListener { sendTvCommand("power_off") }
         binding.buttonInput.setOnClickListener { requestInputs() }
-        binding.buttonQuickInput.setOnClickListener { requestInputs() }
 
         for ((id, view) in listOf(
             "1" to binding.buttonNum1, "2" to binding.buttonNum2, "3" to binding.buttonNum3,
@@ -152,9 +154,6 @@ class TvRemoteActivity : AppCompatActivity() {
         binding.buttonMute.setOnClickListener { sendTvCommand("mute") }
         binding.buttonChUp.setOnClickListener { sendTvCommand("channel_up") }
         binding.buttonChDown.setOnClickListener { sendTvCommand("channel_down") }
-        binding.buttonMic.setOnClickListener {
-            Toast.makeText(this, "Microfono non disponibile da questa app", Toast.LENGTH_SHORT).show()
-        }
 
         binding.buttonHome.setOnClickListener { sendTvDpad("home") }
         binding.buttonSettings.setOnClickListener { sendTvButton("menu") }
@@ -167,6 +166,8 @@ class TvRemoteActivity : AppCompatActivity() {
 
         binding.buttonDpadBack.setOnClickListener { sendTvDpad("back") }
         binding.buttonGuide.setOnClickListener { sendTvButton("guide") }
+        binding.buttonInfo.setOnClickListener { sendTvButton("info") }
+        binding.buttonExit.setOnClickListener { sendTvButton("exit") }
 
         binding.buttonQuickNetflix.setOnClickListener {
             sendCommand(JSONObject().put("type", "tv_launch_app").put("app_id", "netflix"))
@@ -266,26 +267,17 @@ class TvRemoteActivity : AppCompatActivity() {
     private fun renderRenderers() {
         binding.layoutRenderers.removeAllViews()
         if (rendererNames.isEmpty()) {
-            binding.layoutRenderers.addView(TextView(this).apply {
-                text = "nessuna TV trovata"
-                setTextColor(getColor(R.color.text_faint))
-                typeface = Typeface.MONOSPACE
-                textSize = 11f
-            })
+            binding.layoutRenderers.addView(Hud.status(this, "nessuna TV trovata"))
             return
         }
         for ((index, name) in rendererNames.withIndex()) {
-            binding.layoutRenderers.addView(TextView(this).apply {
-                text = if (index == selectedRendererIndex) "● $name" else "○ $name"
-                setTextColor(getColor(if (index == selectedRendererIndex) R.color.cyan else R.color.text_dim))
-                typeface = Typeface.MONOSPACE
-                textSize = 12f
-                setPadding(4, 10, 4, 10)
-                setOnClickListener {
+            val selected = index == selectedRendererIndex
+            binding.layoutRenderers.addView(
+                Hud.row(this, name = (if (selected) "● " else "○ ") + name, onClick = {
                     selectedRendererIndex = index
                     renderRenderers()
-                }
-            })
+                })
+            )
         }
     }
 
@@ -395,8 +387,8 @@ class TvRemoteActivity : AppCompatActivity() {
         val label = TextView(this)
         label.text = title
         label.textSize = 8f
-        label.setTextColor(getColor(R.color.text_faint))
-        label.typeface = android.graphics.Typeface.MONOSPACE
+        label.setTextColor(getColor(R.color.text_dim))
+        label.typeface = Hud.mono(this)
         label.gravity = android.view.Gravity.CENTER_HORIZONTAL
         label.maxLines = 1
         val labelParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)

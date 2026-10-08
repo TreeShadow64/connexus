@@ -5,6 +5,7 @@ import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import com.hubpc.client.ui.Hud
 import android.os.Environment
 import android.provider.MediaStore
 import android.provider.OpenableColumns
@@ -67,8 +68,9 @@ class FtpBrowserActivity : AppCompatActivity() {
         textStatus = findViewById(R.id.textFtpConnStatus)
         textLog = findViewById(R.id.textFtpLog)
 
-        findViewById<TextView>(R.id.textShareName).text = shareName.uppercase()
-        findViewById<TextView>(R.id.helpFtpBrowser).setOnClickListener {
+        val topBar = findViewById<com.hubpc.client.ui.HudTopBar>(R.id.topBar)
+        topBar.setTitle(shareName)
+        topBar.onHelp = {
             HelpDialogs.show(
                 this, "Sfoglia condivisione",
                 "Tocca una cartella per entrarci, \"..\" in cima per risalire. Tocca un file per scaricarlo " +
@@ -169,56 +171,17 @@ class FtpBrowserActivity : AppCompatActivity() {
         }
     }
 
-    private fun makeUpRow(): Button {
-        val button = Button(this)
-        button.text = "📁 .."
-        button.isAllCaps = false
-        button.typeface = Typeface.MONOSPACE
-        button.textSize = 13f
-        button.gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        button.setPadding(28, 24, 28, 24)
-        button.setTextColor(getColor(R.color.text_faint))
-        button.setBackgroundResource(R.drawable.bg_module_card)
-        button.setOnClickListener { loadFolder(parentOf(currentPath)) }
-        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        params.bottomMargin = 8
-        button.layoutParams = params
-        return button
-    }
+    private fun makeUpRow(): android.view.View =
+        Hud.entryRow(this, "..", true) { loadFolder(parentOf(currentPath)) }
 
-    private fun makeEntryRow(entry: FTPFile): Button {
-        val button = Button(this)
+    private fun makeEntryRow(entry: FTPFile): android.view.View {
         val name = entry.name
-        button.text = if (entry.isDirectory) "📁 $name" else "📄 $name  (${formatSize(entry.size)})"
-        button.isAllCaps = false
-        button.typeface = Typeface.MONOSPACE
-        button.textSize = 13f
-        button.gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        button.setPadding(28, 24, 28, 24)
-        button.setTextColor(getColor(R.color.text_primary))
-        button.setBackgroundResource(R.drawable.bg_module_card)
-        button.setOnClickListener {
-            if (entry.isDirectory) {
-                loadFolder(joinPath(currentPath, name))
-            } else {
-                downloadFile(name)
-            }
+        return Hud.entryRow(this, name, entry.isDirectory, formatSize(entry.size)) {
+            if (entry.isDirectory) loadFolder(joinPath(currentPath, name)) else downloadFile(name)
         }
-        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        params.bottomMargin = 8
-        button.layoutParams = params
-        return button
     }
 
-    private fun makeInfoRow(text: String): TextView {
-        val view = TextView(this)
-        view.text = "• $text"
-        view.setTextColor(getColor(R.color.text_faint))
-        view.textSize = 12f
-        view.typeface = Typeface.MONOSPACE
-        view.setPadding(4, 4, 4, 4)
-        return view
-    }
+    private fun makeInfoRow(text: String): TextView = Hud.status(this, "• $text")
 
     private fun formatSize(bytes: Long): String {
         if (bytes <= 0) return "0 B"

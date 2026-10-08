@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- .fz-quickbar / .fz-pane / .tv-remote-col: pannello rialzato rettangolare -->
+<drawable xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.hubpc.client.ui.HudShapeDrawable"
+    app:hudFill="@color/panel_raised"
+    app:hudStroke="@color/cyan_faint"
+    app:hudStrokeWidth="1dp" />

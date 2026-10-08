@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@color/surface" />
-    <stroke
-        android:width="0.5dp"
-        android:color="@color/line" />
-    <corners android:radius="11dp" />
-</shape>
+<drawable xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.hubpc.client.ui.HudShapeDrawable"
+    app:hudFill="@color/panel_solid"
+    app:hudStroke="@color/border"
+    app:hudStrokeWidth="1dp"
+    app:hudCut="8dp" />

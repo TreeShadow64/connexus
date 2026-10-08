@@ -17,9 +17,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:fontFamily="monospace"
+        android:fontFamily="@font/share_tech_mono"
         android:text="[ in attesa ]"
-        android:textColor="#00E5FF"
+        android:textColor="@color/cyan_glow"
         android:textSize="14sp" />
 
     <ImageView
@@ -35,6 +35,6 @@
         android:focusable="true"
         android:contentDescription="Accetta UAC"
         android:src="@drawable/ic_lock_open"
-        app:tint="@color/cyan" />
+        app:tint="@color/cyan_glow" />
 
 </FrameLayout>

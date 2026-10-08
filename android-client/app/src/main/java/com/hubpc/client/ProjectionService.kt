@@ -38,7 +38,14 @@ class ProjectionService : Service() {
                 NotificationChannel(CHANNEL_ID, "Specchio schermo", NotificationManager.IMPORTANCE_LOW)
             )
         }
-        val notification = Notification.Builder(this, CHANNEL_ID)
+        // prima di Android 8 il builder con il canale non esiste
+        @Suppress("DEPRECATION")
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, CHANNEL_ID)
+        } else {
+            Notification.Builder(this)
+        }
+        val notification = builder
             .setContentTitle("Specchio schermo attivo")
             .setContentText("Il telefono sta trasmettendo lo schermo al PC")
             .setSmallIcon(android.R.drawable.ic_menu_view)

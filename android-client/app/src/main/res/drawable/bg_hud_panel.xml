@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- .hud-panel: fondo traslucido, bordo cyan sottile, angoli tagliati da 14px
+     (alto-sinistra, basso-destra) con filetto luminoso sulla diagonale -->
+<drawable xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.hubpc.client.ui.HudShapeDrawable"
+    app:hudFill="@color/panel"
+    app:hudStroke="@color/border"
+    app:hudStrokeWidth="1dp"
+    app:hudCut="14dp"
+    app:hudAccent="@color/cyan_glow"
+    app:hudAccentWidth="2dp" />

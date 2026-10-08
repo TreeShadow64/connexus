@@ -56,7 +56,7 @@ class FtpSettingsActivity : AppCompatActivity() {
         ip = intent.getStringExtra("ip").orEmpty()
         token = intent.getStringExtra("token").orEmpty()
 
-        binding.helpFtp.setOnClickListener {
+        binding.topBar.onHelp = {
             HelpDialogs.show(
                 this, "FTP",
                 "Accende un piccolo server sul telefono che espone TUTTO lo storage (non una cartella scelta) come " +

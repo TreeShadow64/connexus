@@ -2,33 +2,49 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
         android:gravity="center_vertical"
+        android:orientation="vertical"
         android:padding="24dp">
+
+        <FrameLayout
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="14dp">
+
+            <com.hubpc.client.ui.HudRingView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <ImageView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="center"
+                android:contentDescription="Connexus"
+                android:src="@drawable/ic_hud_logo" />
+        </FrameLayout>
 
         <TextView
             style="@style/Text.Hud.Eyebrow"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="accedi" />
+            android:gravity="center"
+            android:text="accesso al sistema" />
 
         <TextView
-            android:layout_width="wrap_content"
+            style="@style/Text.Hud.Title"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="28dp"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.06"
-            android:text="CONNEXUS"
-            android:textColor="@color/cyan"
-            android:textSize="26sp"
-            android:textStyle="bold" />
+            android:layout_marginBottom="26dp"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:text="CONNEXUS // PHONE"
+            android:textSize="22sp" />
 
         <Button
             android:id="@+id/buttonGoogleSignIn"
@@ -40,73 +56,73 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp"
             android:layout_marginTop="20dp"
-            android:layout_marginBottom="16dp">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" android:background="@color/line" />
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:background="@color/border_soft" />
+
             <TextView
-                style="@style/Text.Hud.Status"
+                style="@style/Text.Hud.Eyebrow"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
                 android:layout_marginEnd="10dp"
+                android:layout_marginStart="10dp"
                 android:text="oppure con email" />
-            <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" android:background="@color/line" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:background="@color/border_soft" />
         </LinearLayout>
 
         <LinearLayout
-            style="@style/ModuleCard"
+            style="@style/HudPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:clickable="false"
-            android:focusable="false">
+            android:orientation="vertical">
 
             <EditText
                 android:id="@+id/editEmail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="email"
-                android:textColorHint="@color/text_faint"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:breakStrategy="simple"
                 android:inputType="textEmailAddress" />
 
             <EditText
                 android:id="@+id/editPassword"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="8dp"
                 android:hint="password"
-                android:textColorHint="@color/text_faint"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:breakStrategy="simple"
                 android:inputType="textPassword" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="12dp"
                 android:orientation="horizontal">
 
                 <Button
                     android:id="@+id/buttonLogin"
                     android:layout_width="0dp"
-                    android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
                     android:text="ACCEDI" />
 
                 <Button
                     android:id="@+id/buttonRegister"
                     android:layout_width="0dp"
-                    android:layout_weight="1"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="6dp"
+                    android:layout_weight="1"
                     android:text="REGISTRATI" />
             </LinearLayout>
         </LinearLayout>
@@ -118,6 +134,5 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
             android:textAllCaps="false" />
-
     </LinearLayout>
 </ScrollView>

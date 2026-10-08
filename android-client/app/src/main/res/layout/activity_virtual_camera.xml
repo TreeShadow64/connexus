@@ -3,46 +3,29 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
     android:orientation="vertical">
 
-    <LinearLayout
+    <com.hubpc.client.ui.HudTopBar
+        android:id="@+id/topBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:padding="16dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.1"
-            android:text="VIRTUAL CAMERA"
-            android:textColor="@color/cyan"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/helpVirtualCamera"
-            style="@style/HelpBadge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="?" />
-    </LinearLayout>
+        app:hudHelp="true"
+        app:hudMode="sub"
+        app:hudSubtitle="TELEFONO COME WEBCAM DEL PC"
+        app:hudTitle="Virtual Camera" />
 
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:layout_margin="14dp"
         android:layout_weight="1"
-        android:background="#000000">
+        android:background="@drawable/bg_hud_panel"
+        android:padding="3dp">
 
         <androidx.camera.view.PreviewView
             android:id="@+id/cameraPreview"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
-
     </FrameLayout>
 
     <TextView
@@ -51,16 +34,15 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:paddingTop="10dp"
         android:paddingBottom="4dp"
         android:text="ferma" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:padding="16dp">
+        android:orientation="horizontal"
+        android:padding="14dp">
 
         <FrameLayout
             android:id="@+id/buttonSwitchCamera"
@@ -75,19 +57,17 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:layout_gravity="center"
+                android:contentDescription="Cambia fotocamera"
                 android:src="@drawable/ic_camera_switch"
-                app:tint="@color/cyan" />
-
+                app:tint="@color/cyan_glow" />
         </FrameLayout>
 
         <Button
             android:id="@+id/buttonVirtualCameraToggle"
             style="@style/Widget.Hud.Button.Accent"
             android:layout_width="0dp"
-            android:layout_weight="1"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:text="AVVIA COME WEBCAM PC" />
-
     </LinearLayout>
-
 </LinearLayout>

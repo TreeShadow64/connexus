@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Forma HUD (pannelli/bottoni con due angoli tagliati, come i clip-path
+         della dashboard PC) usabile come <drawable class="...HudShapeDrawable"> -->
+    <declare-styleable name="HudShape">
+        <attr name="hudShape" format="enum">
+            <enum name="polygon" value="0" />
+            <enum name="oval" value="1" />
+        </attr>
+        <attr name="hudFill" format="color" />
+        <attr name="hudStroke" format="color" />
+        <attr name="hudStrokeWidth" format="dimension" />
+        <attr name="hudCut" format="dimension" />
+        <attr name="hudAccent" format="color" />
+        <attr name="hudAccentWidth" format="dimension" />
+        <attr name="hudLeftBar" format="color" />
+        <attr name="hudLeftBarWidth" format="dimension" />
+    </declare-styleable>
+
+    <!-- Barra di navigazione in basso: stesse sezioni della sidebar del PC -->
+    <declare-styleable name="HudNavBar">
+        <attr name="hudActive" format="enum">
+            <enum name="none" value="0" />
+            <enum name="overview" value="1" />
+            <enum name="tv" value="2" />
+            <enum name="files" value="3" />
+            <enum name="settings" value="4" />
+            <enum name="find" value="5" />
+        </attr>
+    </declare-styleable>
+
+    <!-- Barra superiore: home (logo + stato + ingranaggio), section (logo +
+         titolo + ingranaggio) oppure sub (freccia indietro + titolo) -->
+    <declare-styleable name="HudTopBar">
+        <attr name="hudTitle" format="string" />
+        <attr name="hudSubtitle" format="string" />
+        <attr name="hudMode" format="enum">
+            <enum name="home" value="0" />
+            <enum name="section" value="1" />
+            <enum name="sub" value="2" />
+        </attr>
+        <attr name="hudHelp" format="boolean" />
+    </declare-styleable>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- .hud-dialog: pannello opaco con angoli tagliati, centrato -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:insetLeft="12dp"
+    android:insetRight="12dp"
+    android:insetTop="12dp"
+    android:insetBottom="12dp">
+    <drawable
+        class="com.hubpc.client.ui.HudShapeDrawable"
+        app:hudFill="@color/panel_solid"
+        app:hudStroke="@color/cyan_glow"
+        app:hudStrokeWidth="1dp"
+        app:hudCut="14dp"
+        app:hudAccent="@color/cyan_glow"
+        app:hudAccentWidth="2dp" />
+</inset>

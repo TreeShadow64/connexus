@@ -1,12 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.HubClient" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/cyan</item>
-        <item name="colorPrimaryDark">@color/bg_deep</item>
-        <item name="colorAccent">@color/cyan</item>
-        <item name="android:windowBackground">@color/bg</item>
+
+    <!-- Tema unico: HUD scuro identico alla dashboard PC. Si usa la variante
+         "Bridge" cosi' i <Button> restano AppCompatButton (non MaterialButton)
+         e prendono lo sfondo ad angoli tagliati senza interferenze. -->
+    <style name="Theme.HubClient" parent="Theme.MaterialComponents.NoActionBar.Bridge">
+        <item name="colorPrimary">@color/cyan_glow</item>
+        <item name="colorPrimaryDark">@color/bg_void</item>
+        <item name="colorAccent">@color/cyan_glow</item>
+        <item name="colorSecondary">@color/cyan_glow</item>
+        <item name="colorOnPrimary">@color/bg_void</item>
+        <item name="colorSurface">@color/panel_solid</item>
+        <item name="colorOnSurface">@color/hud_white</item>
+        <item name="android:windowBackground">@drawable/bg_hud_window</item>
+        <item name="android:colorBackground">@color/bg_deep</item>
+        <item name="android:statusBarColor">@color/bg_void</item>
+        <item name="android:navigationBarColor">@color/bg_void</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:textColorPrimary">@color/hud_white</item>
+        <item name="android:textColorSecondary">@color/text_dim</item>
+        <item name="android:textColorHint">@color/text_faint</item>
+        <item name="android:fontFamily">@font/rajdhani</item>
+        <item name="fontFamily">@font/rajdhani</item>
+        <item name="colorControlNormal">@color/text_dim</item>
+        <item name="colorControlActivated">@color/cyan_glow</item>
+        <item name="colorControlHighlight">@color/panel_press</item>
         <item name="buttonStyle">@style/Widget.Hud.Button</item>
-        <item name="materialButtonStyle">@style/Widget.Hud.Button</item>
+        <item name="editTextStyle">@style/Widget.Hud.EditText</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.Hud.Dialog</item>
+        <item name="android:alertDialogTheme">@style/ThemeOverlay.Hud.Dialog</item>
+    </style>
+
+    <style name="ThemeOverlay.Hud.Dialog" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_hud_dialog</item>
+        <item name="android:textColorPrimary">@color/hud_white</item>
+        <item name="android:textColorSecondary">@color/text_dim</item>
+        <item name="colorPrimary">@color/cyan_glow</item>
+        <item name="colorAccent">@color/cyan_glow</item>
+        <item name="android:colorBackground">@color/panel_solid</item>
+        <item name="buttonBarButtonStyle">@style/Widget.Hud.DialogButton</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Hud.DialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Hud.DialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Hud.DialogButton</item>
+        <item name="android:buttonBarButtonStyle">@style/Widget.Hud.DialogButton</item>
+        <item name="android:buttonBarPositiveButtonStyle">@style/Widget.Hud.DialogButton</item>
+        <item name="android:buttonBarNegativeButtonStyle">@style/Widget.Hud.DialogButton</item>
+        <item name="android:buttonBarNeutralButtonStyle">@style/Widget.Hud.DialogButton</item>
+    </style>
+
+    <style name="Widget.Hud.DialogButton" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">@color/cyan_glow</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="android:letterSpacing">0.14</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textAllCaps">true</item>
     </style>
 
     <style name="NumButton">
@@ -16,95 +63,167 @@
         <item name="android:layout_margin">2dp</item>
     </style>
 
-    <style name="Widget.Hud.Button" parent="Widget.MaterialComponents.Button">
-        <item name="backgroundTint">@color/surface</item>
-        <item name="strokeColor">@color/line_strong</item>
-        <item name="strokeWidth">0.5dp</item>
-        <item name="android:textColor">@color/text_primary</item>
-        <item name="fontFamily">monospace</item>
-        <item name="android:letterSpacing">0.04</item>
-        <item name="cornerRadius">4dp</item>
+    <!-- .hud-button -->
+    <style name="Widget.Hud.Button" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/bg_hud_button</item>
+        <item name="android:textColor">@color/cyan_glow</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="fontFamily">@font/share_tech_mono</item>
+        <item name="android:letterSpacing">0.14</item>
         <item name="android:textAllCaps">true</item>
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:gravity">center</item>
     </style>
 
     <style name="Widget.Hud.Button.Accent">
-        <item name="backgroundTint">@color/cyan</item>
-        <item name="android:textColor">@color/bg_deep</item>
+        <item name="android:background">@drawable/bg_hud_button_accent</item>
+        <item name="android:textColor">@color/hud_white</item>
     </style>
 
+    <!-- .hud-button.danger -->
+    <style name="Widget.Hud.Button.Danger">
+        <item name="android:background">@drawable/bg_hud_button_danger</item>
+        <item name="android:textColor">@color/hud_red</item>
+    </style>
+
+    <style name="Widget.Hud.EditText" parent="Widget.AppCompat.EditText">
+        <item name="android:background">@drawable/bg_hud_input</item>
+        <item name="android:textColor">@color/hud_white</item>
+        <item name="android:textColorHint">@color/text_faint</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="fontFamily">@font/share_tech_mono</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+        <item name="android:minHeight">44dp</item>
+        <item name="android:textCursorDrawable">@null</item>
+    </style>
+
+    <!-- .hud-eyebrow -->
     <style name="Text.Hud.Eyebrow" parent="">
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:letterSpacing">0.14</item>
-        <item name="android:textColor">@color/text_faint</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="android:letterSpacing">0.22</item>
+        <item name="android:textColor">@color/text_dim</item>
         <item name="android:textSize">10sp</item>
         <item name="android:textAllCaps">true</item>
     </style>
 
-    <style name="Text.Hud.SectionLabel" parent="">
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:letterSpacing">0.1</item>
-        <item name="android:textColor">@color/cyan</item>
-        <item name="android:textSize">13sp</item>
+    <!-- .hud-title -->
+    <style name="Text.Hud.Title" parent="">
+        <item name="android:fontFamily">@font/rajdhani</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textColor">@color/hud_white</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textSize">14sp</item>
     </style>
 
-    <style name="Text.Hud.Status" parent="">
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:letterSpacing">0.06</item>
-        <item name="android:textColor">@color/text_faint</item>
-        <item name="android:textSize">9sp</item>
-        <item name="android:textAllCaps">true</item>
+    <!-- titolo di una card/sezione (come .hud-title nelle stat-card) -->
+    <style name="Text.Hud.SectionLabel" parent="Text.Hud.Title">
+        <item name="android:textSize">13sp</item>
+    </style>
+
+    <!-- .hud-mono -->
+    <style name="Text.Hud.Mono" parent="">
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="android:letterSpacing">0.04</item>
+        <item name="android:textColor">@color/text_dim</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <!-- .hud-value: valore ciano con alone -->
+    <style name="Text.Hud.Value" parent="Text.Hud.Mono">
+        <item name="android:textColor">@color/cyan_glow</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:shadowColor">#806FE3FF</item>
+        <item name="android:shadowRadius">10</item>
+    </style>
+
+    <!-- righe di stato / log / didascalie -->
+    <style name="Text.Hud.Status" parent="Text.Hud.Mono">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">@color/text_dim</item>
     </style>
 
     <style name="HelpBadge">
-        <item name="android:layout_width">22dp</item>
-        <item name="android:layout_height">22dp</item>
+        <item name="android:layout_width">24dp</item>
+        <item name="android:layout_height">24dp</item>
         <item name="android:background">@drawable/bg_help_badge</item>
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:textColor">@color/text_faint</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="android:textColor">@color/cyan_glow</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:gravity">center</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
     </style>
 
+    <!-- .hud-panel cliccabile -->
     <style name="ModuleCard">
         <item name="android:background">@drawable/bg_module_card</item>
-        <item name="android:padding">12dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">14dp</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
-        <item name="android:foreground">?attr/selectableItemBackground</item>
     </style>
 
-    <style name="Text.Hud.Caption" parent="">
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:letterSpacing">0.03</item>
-        <item name="android:textColor">@color/remote_caption_text</item>
-        <item name="android:textSize">7sp</item>
+    <!-- .hud-panel statico -->
+    <style name="HudPanel">
+        <item name="android:background">@drawable/bg_hud_panel</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">14dp</item>
+    </style>
+
+    <!-- .fz-quickbar / .fz-pane -->
+    <style name="HudPanelRaised">
+        <item name="android:background">@drawable/bg_hud_panel_raised</item>
+        <item name="android:padding">12dp</item>
+    </style>
+
+    <!-- .hud-row -->
+    <style name="HudRow">
+        <item name="android:background">@drawable/bg_hud_row</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+    </style>
+
+    <style name="Text.Hud.Caption" parent="Text.Hud.Mono">
+        <item name="android:textSize">9sp</item>
     </style>
 
     <style name="RemoteKey">
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:textColor">@color/remote_btn_text</item>
-        <item name="android:textSize">13sp</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="android:textColor">@color/cyan_glow</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:gravity">center</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
-        <item name="android:foreground">?attr/selectableItemBackground</item>
+        <item name="android:background">@drawable/bg_hud_button</item>
     </style>
 
     <style name="RemoteKey.Circle">
-        <item name="android:layout_width">40dp</item>
-        <item name="android:layout_height">40dp</item>
-        <item name="android:background">@drawable/bg_remote_circle</item>
+        <item name="android:layout_width">44dp</item>
+        <item name="android:layout_height">44dp</item>
     </style>
 
     <style name="RemoteKey.Pill">
         <item name="android:layout_width">0dp</item>
-        <item name="android:layout_height">40dp</item>
+        <item name="android:layout_height">42dp</item>
         <item name="android:layout_columnWeight">1</item>
         <item name="android:layout_margin">3dp</item>
-        <item name="android:background">@drawable/bg_remote_pill</item>
     </style>
 </resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- azione principale: stessa forma del bottone HUD ma riempimento piu' pieno -->
+<drawable xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.hubpc.client.ui.HudShapeDrawable"
+    app:hudFill="#4D6FE3FF"
+    app:hudStroke="@color/cyan_glow"
+    app:hudStrokeWidth="1dp"
+    app:hudCut="8dp" />

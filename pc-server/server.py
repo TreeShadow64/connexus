@@ -45,7 +45,9 @@ MEDIA_HTTP_PORT = 8766
 SCREEN_PORT = 8767
 PROJECTOR_PORT = 8768
 VIRTUALCAM_PORT = 8769
-UVCCAM_PORT = 8770
+# 8770 e' riservata al servizio elevato (hub_service_helper/service_client),
+# 8771 dashboard, 8772 DLNA: la webcam UVC non puo' stare su nessuna di queste.
+UVCCAM_PORT = 8773
 
 PARSEC_EXE = r"C:\Program Files\Parsec\parsecd.exe"
 PROTONVPN_EXE = r"C:\Program Files\Proton\VPN\ProtonVPN.Launcher.exe"
@@ -187,7 +189,7 @@ def handle_command(data, conn_key=None, peer_ip=None):
             service_client.send_command(data)
             return {"type": "tv_ok", "message": "Comando UAC inviato"}
         except service_client.ServiceUnavailable as e:
-            return {"type": "tv_error", "message": f"Servizio non disponibile: {e}"}
+            return {"type": "tv_error", "message": f"Servizio non disponibile: {str(e) or type(e).__name__}"}
     elif cmd == "launch_parsec":
         launch_parsec()
     elif cmd == "launch_vpn":
@@ -269,7 +271,7 @@ async def handle_async_command(data):
             return {"type": "tv_ok", "message": "TV abbinata con successo"}
         except Exception as e:
             log.warning(f"Abbinamento TV fallito: {e}")
-            return {"type": "tv_error", "message": f"Abbinamento fallito: {e}"}
+            return {"type": "tv_error", "message": f"Abbinamento fallito: {str(e) or type(e).__name__}"}
 
     elif cmd == "tv_command":
         action = data.get("action", "")
@@ -281,7 +283,7 @@ async def handle_async_command(data):
             return {"type": "tv_ok", "message": f"Comando inviato: {action}"}
         except Exception as e:
             log.warning(f"Comando TV fallito ({action}): {e}")
-            return {"type": "tv_error", "message": f"Comando fallito: {e}"}
+            return {"type": "tv_error", "message": f"Comando fallito: {str(e) or type(e).__name__}"}
 
     elif cmd == "tv_dpad":
         direction = data.get("direction", "")
@@ -293,7 +295,7 @@ async def handle_async_command(data):
             return {"type": "tv_ok", "message": f"D-pad: {direction}"}
         except Exception as e:
             log.warning(f"D-pad TV fallito ({direction}): {e}")
-            return {"type": "tv_error", "message": f"D-pad fallito: {e}"}
+            return {"type": "tv_error", "message": f"D-pad fallito: {str(e) or type(e).__name__}"}
 
     elif cmd == "tv_button":
         name = data.get("name", "")
@@ -305,7 +307,7 @@ async def handle_async_command(data):
             return {"type": "tv_ok", "message": f"Tasto: {name}"}
         except Exception as e:
             log.warning(f"Tasto TV fallito ({name}): {e}")
-            return {"type": "tv_error", "message": f"Tasto fallito: {e}"}
+            return {"type": "tv_error", "message": f"Tasto fallito: {str(e) or type(e).__name__}"}
 
     elif cmd == "tv_list_apps":
         try:
@@ -313,7 +315,7 @@ async def handle_async_command(data):
             return {"type": "tv_apps", "apps": apps}
         except Exception as e:
             log.warning(f"Elenco app TV fallito: {e}")
-            return {"type": "tv_error", "message": f"Elenco app fallito: {e}"}
+            return {"type": "tv_error", "message": f"Elenco app fallito: {str(e) or type(e).__name__}"}
 
     elif cmd == "tv_launch_app":
         app_id = data.get("app_id", "")
@@ -322,7 +324,7 @@ async def handle_async_command(data):
             return {"type": "tv_ok", "message": f"Avviata app: {app_id}"}
         except Exception as e:
             log.warning(f"Avvio app TV fallito ({app_id}): {e}")
-            return {"type": "tv_error", "message": f"Avvio app fallito: {e}"}
+            return {"type": "tv_error", "message": f"Avvio app fallito: {str(e) or type(e).__name__}"}
 
     elif cmd == "tv_list_inputs":
         try:
@@ -330,7 +332,7 @@ async def handle_async_command(data):
             return {"type": "tv_inputs", "inputs": inputs}
         except Exception as e:
             log.warning(f"Elenco input TV fallito: {e}")
-            return {"type": "tv_error", "message": f"Elenco input fallito: {e}"}
+            return {"type": "tv_error", "message": f"Elenco input fallito: {str(e) or type(e).__name__}"}
 
     elif cmd == "tv_switch_input":
         input_id = data.get("input_id", "")
@@ -339,7 +341,7 @@ async def handle_async_command(data):
             return {"type": "tv_ok", "message": f"Sorgente: {input_id}"}
         except Exception as e:
             log.warning(f"Cambio input TV fallito ({input_id}): {e}")
-            return {"type": "tv_error", "message": f"Cambio input fallito: {e}"}
+            return {"type": "tv_error", "message": f"Cambio input fallito: {str(e) or type(e).__name__}"}
 
     return None
 

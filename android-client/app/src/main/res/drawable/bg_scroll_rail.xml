@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@color/surface_raised" />
-    <stroke
-        android:width="1dp"
-        android:color="@color/cyan_dim" />
-    <corners android:radius="18dp" />
-</shape>
+<drawable xmlns:app="http://schemas.android.com/apk/res-auto"
+    class="com.hubpc.client.ui.HudShapeDrawable"
+    app:hudFill="@color/panel_raised"
+    app:hudStroke="@color/border_strong"
+    app:hudStrokeWidth="1dp"
+    app:hudCut="10dp"
+    app:hudAccent="@color/cyan_glow"
+    app:hudAccentWidth="2dp" />

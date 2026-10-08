@@ -2,69 +2,85 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
         android:gravity="center_vertical"
+        android:orientation="vertical"
         android:padding="24dp">
+
+        <FrameLayout
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="14dp">
+
+            <com.hubpc.client.ui.HudRingView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <ImageView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="center"
+                android:contentDescription="Connexus"
+                android:src="@drawable/ic_hud_logo" />
+        </FrameLayout>
 
         <TextView
             style="@style/Text.Hud.Eyebrow"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center"
             android:text="benvenuto" />
 
         <TextView
-            android:layout_width="wrap_content"
+            style="@style/Text.Hud.Title"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="8dp"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.06"
-            android:text="CONNEXUS"
-            android:textColor="@color/cyan"
-            android:textSize="26sp"
-            android:textStyle="bold" />
+            android:layout_marginBottom="10dp"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:text="CONNEXUS // PHONE"
+            android:textSize="22sp" />
 
         <TextView
             style="@style/Text.Hud.Status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="28dp"
-            android:textAllCaps="false"
+            android:layout_marginBottom="24dp"
+            android:gravity="center"
             android:lineSpacingExtra="3dp"
-            android:text="Prima di iniziare, collega l'app al PC: ti servono l'indirizzo IP e il token mostrati all'avvio del server sul PC. Potrai modificarli in qualsiasi momento dalle impostazioni." />
+            android:text="Prima di iniziare, collega l'app al PC: ti servono l'indirizzo IP e il token mostrati all'avvio del server sul PC. Potrai modificarli in qualsiasi momento dalle impostazioni."
+            android:textAllCaps="false" />
 
         <LinearLayout
-            style="@style/ModuleCard"
+            style="@style/HudPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:clickable="false"
-            android:focusable="false">
+            android:orientation="vertical">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
                 <TextView
                     style="@style/Text.Hud.Eyebrow"
                     android:layout_width="0dp"
-                    android:layout_weight="1"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="connessione al pc" />
 
                 <TextView
                     android:id="@+id/helpConnection"
                     style="@style/HelpBadge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:gravity="center"
                     android:text="?" />
             </LinearLayout>
 
@@ -72,13 +88,8 @@
                 android:id="@+id/editIp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:fontFamily="monospace"
-                android:hint="IP del PC (es. 10.20.30.1)"
-                android:textColorHint="@color/text_faint"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:breakStrategy="simple"
+                android:layout_marginTop="10dp"
+                android:hint="IP del PC (es. 192.168.1.20)"
                 android:importantForAutofill="no"
                 android:inputType="text" />
 
@@ -86,14 +97,11 @@
                 android:id="@+id/editToken"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="8dp"
                 android:hint="token (mostrato all'avvio del server)"
-                android:textColorHint="@color/text_faint"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:maxLines="2"
                 android:importantForAutofill="no"
-                android:inputType="textMultiLine" />
+                android:inputType="textMultiLine"
+                android:maxLines="2" />
         </LinearLayout>
 
         <Button
@@ -110,6 +118,5 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp" />
-
     </LinearLayout>
 </ScrollView>

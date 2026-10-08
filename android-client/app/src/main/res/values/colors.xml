@@ -1,20 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Palette HUD identica alla dashboard del PC (pc-server/dashboard/styles.css).
+     Un solo tema scuro: l'identita' visiva e' la stessa sui due lati. -->
 <resources>
-    <color name="bg">#EEF2F6</color>
-    <color name="bg_deep">#E2E8EE</color>
-    <color name="surface">#FFFFFF</color>
-    <color name="surface_raised">#F5F8FB</color>
-    <color name="line">#D3DDE5</color>
-    <color name="line_strong">#B7C6D1</color>
+    <color name="bg_void">#030608</color>
+    <color name="bg_deep">#060D16</color>
+    <color name="bg_top">#0A1826</color>
 
-    <color name="cyan">#0092B8</color>
-    <color name="cyan_dim">#0AA8C4</color>
-    <color name="magenta">#D6207A</color>
-    <color name="green">#1FA34C</color>
-    <color name="red">#D6322C</color>
-    <color name="amber">#C97F00</color>
+    <!-- pannelli: bg-panel e bg-panel-raised del CSS -->
+    <color name="panel">#B80A1622</color>
+    <color name="panel_raised">#D90F1E2E</color>
+    <color name="panel_solid">#0B1824</color>
+    <color name="panel_press">#2A6FE3FF</color>
 
-    <color name="text_primary">#0C1B26</color>
-    <color name="text_dim">#4C6172</color>
-    <color name="text_faint">#94A7B4</color>
+    <color name="cyan_glow">#6FE3FF</color>
+    <color name="cyan_base">#2FB8E0</color>
+    <color name="cyan_deep">#17607A</color>
+    <color name="cyan_faint">#2E6FE3FF</color>
+
+    <color name="hud_white">#EAF6FB</color>
+    <color name="text_dim">#7FA3B3</color>
+    <color name="text_faint">#3F5C6B</color>
+
+    <color name="hud_green">#3DFFA0</color>
+    <color name="hud_amber">#FFC24B</color>
+    <color name="hud_red">#FF4D5E</color>
+
+    <!-- bordi: cyan-glow con alfa 0.14 / 0.28 / 0.4 come nel CSS -->
+    <color name="border_soft">#246FE3FF</color>
+    <color name="border">#476FE3FF</color>
+    <color name="border_strong">#666FE3FF</color>
+    <color name="button_fill">#0F6FE3FF</color>
+    <color name="button_fill_danger">#0FFF4D5E</color>
+    <color name="border_danger">#80FF4D5E</color>
+
+    <!-- alias storici: tutto il codice/layout esistente passa dalla nuova palette -->
+    <color name="bg">#030608</color>
+    <color name="surface">#0B1824</color>
+    <color name="surface_raised">#0F1E2E</color>
+    <color name="line">#17404F</color>
+    <color name="line_strong">#2A7A92</color>
+    <color name="cyan">#6FE3FF</color>
+    <color name="cyan_dim">#2FB8E0</color>
+    <color name="magenta">#FF4D5E</color>
+    <color name="green">#3DFFA0</color>
+    <color name="red">#FF4D5E</color>
+    <color name="amber">#FFC24B</color>
+    <color name="text_primary">#EAF6FB</color>
 </resources>

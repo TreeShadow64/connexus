@@ -25,13 +25,13 @@ class DonutChartView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeWidth = ringWidth
         strokeCap = Paint.Cap.ROUND
-        color = context.getColor(R.color.surface_raised)
+        color = context.getColor(R.color.cyan_faint)
     }
     private val fgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = ringWidth
         strokeCap = Paint.Cap.ROUND
-        color = context.getColor(R.color.cyan)
+        color = context.getColor(R.color.cyan_glow)
     }
     private val rect = RectF()
 

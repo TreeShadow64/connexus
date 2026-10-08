@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.hubpc.client.databinding.ActivityTaskManagerBinding
+import com.hubpc.client.ui.Hud
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -27,7 +28,7 @@ class TaskManagerActivity : AppCompatActivity() {
         binding = ActivityTaskManagerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.helpTaskManager.setOnClickListener {
+        binding.topBar.onHelp = {
             HelpDialogs.show(
                 this, "Task manager",
                 "Elenco dei processi del PC in questo momento, ordinati per memoria usata (i piu' pesanti prima). " +
@@ -102,37 +103,13 @@ class TaskManagerActivity : AppCompatActivity() {
         val pid = process.optInt("pid")
         val name = process.optString("name", "?")
         val memoryMb = process.optDouble("memory_mb", 0.0)
-
-        val row = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
-            setBackgroundResource(R.drawable.bg_module_card)
-            setPadding(24, 20, 24, 20)
-            val params = android.widget.LinearLayout.LayoutParams(
-                android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            params.bottomMargin = 8
-            layoutParams = params
-        }
-
-        val label = android.widget.TextView(this).apply {
-            text = "$name\npid $pid — ${"%.1f".format(memoryMb)} MB"
-            typeface = android.graphics.Typeface.MONOSPACE
-            textSize = 12f
-            setTextColor(getColor(R.color.text_primary))
-            val params = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            layoutParams = params
-        }
-        row.addView(label)
-
-        val killButton = android.widget.Button(this).apply {
-            text = "CHIUDI"
-            textSize = 11f
-            setOnClickListener { confirmKill(pid, name) }
-        }
-        row.addView(killButton)
-
-        return row
+        return Hud.row(
+            this,
+            name = name,
+            detail = "pid $pid — ${"%.1f".format(memoryMb)} MB",
+            actionLabel = "CHIUDI",
+            onAction = { confirmKill(pid, name) },
+        )
     }
 
     private fun confirmKill(pid: Int, name: String) {

@@ -68,7 +68,7 @@ class VirtualCameraActivity : AppCompatActivity() {
         ip = intent.getStringExtra("ip").orEmpty()
         token = intent.getStringExtra("token").orEmpty()
 
-        binding.helpVirtualCamera.setOnClickListener {
+        binding.topBar.onHelp = {
             HelpDialogs.show(
                 this, "Virtual camera",
                 "Usa la fotocamera del telefono come webcam del PC: una volta avviata, in Zoom/Teams/Discord o " +
