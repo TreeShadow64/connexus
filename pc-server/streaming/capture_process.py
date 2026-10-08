@@ -81,7 +81,7 @@ def main():
     jpeg_quality = int(sys.argv[2])
     max_width = int(sys.argv[3])
 
-    import virtual_display
+    from streaming import virtual_display
 
     geometry = virtual_display.find_primary_display()
     if geometry is None:

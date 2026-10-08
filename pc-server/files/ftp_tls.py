@@ -12,7 +12,7 @@ import logging
 import ssl
 from pathlib import Path
 
-from paths import app_dir
+from core.paths import app_dir
 
 log = logging.getLogger("hub-server")
 

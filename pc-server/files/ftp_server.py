@@ -27,7 +27,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-import ftp_tls
+from files import ftp_tls
 
 CONTROL_PORT = 2130
 DATA_PORT_RANGE = range(2131, 2141)

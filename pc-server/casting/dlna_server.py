@@ -26,7 +26,7 @@ from xml.sax.saxutils import escape
 
 import cv2
 
-import dlna_cast
+from casting import dlna_cast
 
 log = logging.getLogger("hub-server")
 

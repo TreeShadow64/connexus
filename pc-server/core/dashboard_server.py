@@ -15,9 +15,9 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-import file_browser
-import ftp_client
-from paths import bundle_dir
+from files import file_browser
+from files import ftp_client
+from core.paths import bundle_dir
 
 log = logging.getLogger("hub-server")
 

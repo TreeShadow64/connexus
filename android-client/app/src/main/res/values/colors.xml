@@ -4,7 +4,6 @@
 <resources>
     <color name="bg_void">#030608</color>
     <color name="bg_deep">#060D16</color>
-    <color name="bg_top">#0A1826</color>
 
     <!-- pannelli: bg-panel e bg-panel-raised del CSS -->
     <color name="panel">#B80A1622</color>
@@ -14,7 +13,6 @@
 
     <color name="cyan_glow">#6FE3FF</color>
     <color name="cyan_base">#2FB8E0</color>
-    <color name="cyan_deep">#17607A</color>
     <color name="cyan_faint">#2E6FE3FF</color>
 
     <color name="hud_white">#EAF6FB</color>
@@ -32,18 +30,4 @@
     <color name="button_fill">#0F6FE3FF</color>
     <color name="button_fill_danger">#0FFF4D5E</color>
     <color name="border_danger">#80FF4D5E</color>
-
-    <!-- alias storici: tutto il codice/layout esistente passa dalla nuova palette -->
-    <color name="bg">#030608</color>
-    <color name="surface">#0B1824</color>
-    <color name="surface_raised">#0F1E2E</color>
-    <color name="line">#17404F</color>
-    <color name="line_strong">#2A7A92</color>
-    <color name="cyan">#6FE3FF</color>
-    <color name="cyan_dim">#2FB8E0</color>
-    <color name="magenta">#FF4D5E</color>
-    <color name="green">#3DFFA0</color>
-    <color name="red">#FF4D5E</color>
-    <color name="amber">#FFC24B</color>
-    <color name="text_primary">#EAF6FB</color>
 </resources>

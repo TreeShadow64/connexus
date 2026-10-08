@@ -24,20 +24,20 @@ from pynput.mouse import Controller as MouseController
 
 import psutil
 
-import auth
-import dashboard_server
-import dlna_cast
-import dlna_server
-import file_browser
-import firebase_relay
-import ftp_server
-import service_client
-import wol
-import mouse_guard
-import screen_stream
-import updater
-import webos_remote
-from paths import app_dir
+from core import auth
+from core import dashboard_server
+from casting import dlna_cast
+from casting import dlna_server
+from files import file_browser
+from cloud import firebase_relay
+from files import ftp_server
+from remote_input import service_client
+from core import wol
+from remote_input import mouse_guard
+from streaming import screen_stream
+from core import updater
+from casting import webos_remote
+from core.paths import app_dir
 
 HOST = "0.0.0.0"
 PORT = 8765

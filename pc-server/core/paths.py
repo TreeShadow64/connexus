@@ -8,8 +8,8 @@ gira pacchettizzata come .exe (PyInstaller):
 - bundle_dir(): dove vivono gli asset statici in sola lettura inclusi
   nell'exe (la dashboard HTML/CSS/JS).
 
-In sviluppo (non pacchettizzato) coincidono entrambe con la cartella di
-questo file."""
+In sviluppo (non pacchettizzato) coincidono entrambe con la cartella
+pc-server (quella sopra il pacchetto core)."""
 import sys
 from pathlib import Path
 
@@ -17,10 +17,10 @@ from pathlib import Path
 def app_dir():
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
-    return Path(__file__).parent
+    return Path(__file__).resolve().parent.parent
 
 
 def bundle_dir():
     if getattr(sys, "frozen", False):
         return Path(getattr(sys, "_MEIPASS"))
-    return Path(__file__).parent
+    return Path(__file__).resolve().parent.parent

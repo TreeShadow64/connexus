@@ -12,7 +12,7 @@ non va mai committato in un repository pubblico.
 import json
 import secrets
 
-from paths import app_dir
+from core.paths import app_dir
 
 AUTH_CONFIG_PATH = app_dir() / "auth_config.json"
 

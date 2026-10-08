@@ -21,7 +21,7 @@ from pathlib import Path
 from pynput.mouse import Button
 from pynput.mouse import Controller as MouseController
 
-from paths import app_dir
+from core.paths import app_dir
 
 log = logging.getLogger("hub-server")
 
@@ -63,9 +63,9 @@ class ScreenStreamer:
             args = [sys.executable, "--capture-process", str(self.target_fps),
                      str(self.jpeg_quality), str(self.max_width)]
         else:
-            script = Path(__file__).parent / "capture_process.py"
-            args = [sys.executable, str(script), str(self.target_fps),
-                     str(self.jpeg_quality), str(self.max_width)]
+            # cwd e' pc-server (app_dir): "-m" trova il pacchetto streaming
+            args = [sys.executable, "-m", "streaming.capture_process",
+                     str(self.target_fps), str(self.jpeg_quality), str(self.max_width)]
         self._process = subprocess.Popen(
             args,
             cwd=str(app_dir()),

@@ -20,7 +20,7 @@ import threading
 # seconda finestra/tray.
 if len(sys.argv) > 1 and sys.argv[1] == "--capture-process":
     sys.argv = sys.argv[1:]
-    import capture_process
+    from streaming import capture_process
     sys.exit(capture_process.main())
 
 import pystray

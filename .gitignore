@@ -8,10 +8,10 @@ pc-server/parsec_config.json
 pc-server/ftp_cert.pem
 pc-server/ftp_key.pem
 pc-server/media/
-pc-server/__pycache__/
+__pycache__/
+*.pyc
 pc-server/build/
 pc-server/dist/
-pc-server/*.spec
 pc-server/venv/
 
 # Se l'exe impacchettato viene avviato dalla radice del repo genera qui

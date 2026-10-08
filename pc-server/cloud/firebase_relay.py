@@ -36,7 +36,7 @@ import uuid
 import winsound
 from datetime import datetime, timezone
 
-from paths import app_dir
+from core.paths import app_dir
 
 log = logging.getLogger("hub-server")
 

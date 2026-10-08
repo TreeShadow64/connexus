@@ -9,7 +9,7 @@ echo.
 echo === Installazione servizio Hub PC ===
 echo.
 
-pip install -r requirements.txt
+pip install -r ..\requirements.txt
 if errorlevel 1 goto errore
 
 python hub_service.py --startup auto install
