@@ -49,3 +49,7 @@ Thumbs.db
 
 # Log runtime del server/exe
 connexus.log*
+
+# Configurazioni VPN (WireGuard): contengono chiavi private, mai da committare
+*.conf
+/vpn-config/
