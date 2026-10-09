@@ -914,8 +914,7 @@ async function applyUpdate(zipUrl) {
         updateCheckResult = null;
         renderSistemaView(lastStatus);
     }
-    // se ok, il processo attuale sta per chiudersi da solo per lasciare
-    // aggiornare i file: status.json smettera' di rispondere per un attimo.
+    // se ok l'avanzamento arriva da status.json; a fine download il programma si riavvia da solo
 }
 
 // ---------- programmi esterni (Parsec, ProtonVPN sul PC) ----------
@@ -958,8 +957,8 @@ function renderSistemaView(status) {
         if (updateCheckResult.checking) {
             updateValue = `versione ${status.app_version} — controllo in corso...`;
             updateActions = "";
-        } else if (updateCheckResult.applying) {
-            updateValue = "installazione in corso, il programma si riavvia tra poco...";
+        } else if (updateCheckResult.applying && !status.update_progress) {
+            updateValue = "avvio dell'aggiornamento...";
             updateActions = "";
             updateDot = "warn";
         } else if (updateCheckResult.update_available) {
@@ -969,6 +968,25 @@ function renderSistemaView(status) {
         } else {
             updateValue = `versione ${status.app_version} — già aggiornato`;
         }
+    }
+
+    // l'avanzamento vero arriva dal server (status.json): vale anche se la dashboard si riapre a meta'
+    const up = status.update_progress || {};
+    if (up.phase === "download") {
+        const mb = n => (n / 1048576).toFixed(1);
+        const pct = up.total ? Math.min(100, Math.round(up.downloaded * 100 / up.total)) : 0;
+        updateValue = up.total
+            ? `scaricamento ${mb(up.downloaded)} MB di ${mb(up.total)} MB (${pct}%)`
+            : `scaricamento ${mb(up.downloaded)} MB...`;
+        updateActions = `<div class="hud-progress"><div style="width:${pct}%"></div></div>`;
+        updateDot = "warn";
+    } else if (up.phase === "install") {
+        updateValue = "installazione in corso, il programma si riavvia tra poco...";
+        updateActions = "";
+        updateDot = "warn";
+    } else if (up.phase === "error") {
+        updateValue = `aggiornamento fallito: ${up.error}`;
+        updateDot = "warn";
     }
 
     const cards = [

@@ -1408,6 +1408,7 @@ def collect_dashboard_status():
         "account_paired": firebase_relay.is_enabled(),
         "own_device_id": firebase_relay.own_device_id(),
         "app_version": updater.APP_VERSION,
+        "update_progress": updater.get_progress(),
     }
 
 
@@ -1446,18 +1447,13 @@ def handle_dashboard_action(action, payload):
     if action == "check_update":
         return updater.check_latest() or {"update_available": False}
     if action == "start_update":
-        try:
-            # I file vanno rilasciati prima che il .bat esterno possa
-            # sovrascriverli: l'uscita e' ritardata di un secondo per dare
-            # tempo alla risposta HTTP di questa stessa richiesta di partire.
-            updater.apply_update(
-                payload.get("zip_url"),
-                on_restart=lambda: threading.Timer(1.0, lambda: os._exit(0)).start(),
-            )
-            return {"ok": True}
-        except Exception as e:
-            log.warning(f"Aggiornamento PC fallito: {e}")
-            return {"ok": False, "error": str(e)}
+        # i file vanno rilasciati prima che il .bat esterno possa sovrascriverli:
+        # l'uscita e' ritardata di un secondo per lasciare partire l'ultima risposta
+        ok, error = updater.start_update_async(
+            payload.get("zip_url"),
+            on_restart=lambda: threading.Timer(1.0, lambda: os._exit(0)).start(),
+        )
+        return {"ok": True} if ok else {"ok": False, "error": error}
     if action in (
         "tv_pair", "tv_command", "tv_dpad", "tv_button",
         "tv_list_apps", "tv_launch_app", "tv_list_inputs", "tv_switch_input",

@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import urllib.error
 import urllib.request
 import zipfile
@@ -34,6 +35,57 @@ log = logging.getLogger("hub-server")
 APP_VERSION = "0.38"
 RELEASES_API = "https://api.github.com/repos/TreeShadow64/connexus/releases/latest"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ConnexusPC/1.0"
+
+
+# Avanzamento dell'aggiornamento, letto dalla dashboard (status.json): il
+# download di un'ottantina di MB puo' durare minuti e senza numeri sembra bloccato.
+_progress = {"phase": "idle", "downloaded": 0, "total": 0, "error": ""}
+_progress_lock = threading.Lock()
+
+
+def _set_progress(**values):
+    with _progress_lock:
+        _progress.update(values)
+
+
+def get_progress():
+    with _progress_lock:
+        return dict(_progress)
+
+
+def _download(zip_url, dest):
+    req = urllib.request.Request(zip_url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=60) as resp, open(dest, "wb") as f:
+        total = int(resp.headers.get("Content-Length") or 0)
+        _set_progress(phase="download", downloaded=0, total=total, error="")
+        done = 0
+        while True:
+            chunk = resp.read(256 * 1024)
+            if not chunk:
+                break
+            f.write(chunk)
+            done += len(chunk)
+            _set_progress(downloaded=done)
+
+
+def start_update_async(zip_url, on_restart):
+    """Avvia l'aggiornamento in background: la richiesta della dashboard torna
+    subito e l'avanzamento si legge da get_progress(). Ritorna (ok, errore)."""
+    if get_progress()["phase"] in ("download", "install"):
+        return False, "Aggiornamento gia' in corso"
+    if not getattr(sys, "frozen", False):
+        return False, "l'aggiornamento automatico funziona solo nella versione .exe, non in sviluppo"
+    _set_progress(phase="download", downloaded=0, total=0, error="")
+
+    def run():
+        try:
+            apply_update(zip_url, on_restart)
+        except Exception as e:
+            log.warning(f"Aggiornamento PC fallito: {e}")
+            _set_progress(phase="error", error=str(e) or type(e).__name__)
+
+    threading.Thread(target=run, daemon=True).start()
+    return True, ""
 
 
 def _version_tuple(tag):
@@ -79,9 +131,8 @@ def apply_update(zip_url, on_restart):
     tmp_root = Path(tempfile.mkdtemp(prefix="connexus-update-"))
     zip_path = tmp_root / "update.zip"
 
-    req = urllib.request.Request(zip_url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=60) as resp, open(zip_path, "wb") as f:
-        shutil.copyfileobj(resp, f)
+    _download(zip_url, zip_path)
+    _set_progress(phase="install")
 
     extract_dir = tmp_root / "extracted"
     with zipfile.ZipFile(zip_path) as zf:
