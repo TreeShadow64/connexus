@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:hudMode="sub"
-        app:hudSubtitle="ACCOUNT // CONNESSIONI // VERSIONE"
+        app:hudSubtitle="ACCOUNT // CONNESSIONI"
         app:hudTitle="Account e connessioni" />
 
     <ScrollView
@@ -127,52 +127,6 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:text="INVIA FEEDBACK O SEGNALAZIONE" />
-            </LinearLayout>
-
-            <!-- versione -->
-            <LinearLayout
-                style="@style/HudPanel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:orientation="vertical">
-
-                <TextView
-                    style="@style/Text.Hud.Eyebrow"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="aggiornamenti · github releases" />
-
-                <TextView
-                    style="@style/Text.Hud.Title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Versione app" />
-
-                <TextView
-                    android:id="@+id/textAppVersion"
-                    style="@style/Text.Hud.Value"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="versione" />
-
-                <Button
-                    android:id="@+id/buttonUpdateApp"
-                    style="@style/Widget.Hud.Button.Accent"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="AGGIORNA APP" />
-
-                <TextView
-                    android:id="@+id/textUpdateStatus"
-                    style="@style/Text.Hud.Status"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:textAllCaps="false" />
             </LinearLayout>
 
             <Button

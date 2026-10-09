@@ -223,6 +223,52 @@
                     android:text="IMPOSTA PARSEC / VPN" />
             </LinearLayout>
 
+            <!-- versione e aggiornamenti -->
+            <LinearLayout
+                style="@style/HudPanel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/Text.Hud.Eyebrow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="aggiornamenti · github releases" />
+
+                <TextView
+                    style="@style/Text.Hud.Title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Versione app" />
+
+                <TextView
+                    android:id="@+id/textAppVersion"
+                    style="@style/Text.Hud.Value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="versione" />
+
+                <Button
+                    android:id="@+id/buttonUpdateApp"
+                    style="@style/Widget.Hud.Button.Accent"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="CONTROLLA AGGIORNAMENTI" />
+
+                <TextView
+                    android:id="@+id/textUpdateStatus"
+                    style="@style/Text.Hud.Status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+
             <!-- accesso da fuori casa -->
             <LinearLayout
                 style="@style/HudPanel"

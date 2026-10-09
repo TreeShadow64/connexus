@@ -143,6 +143,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun startConnecting() {
         profiles = ConnectionProfiles.load(this)
+        com.hubpc.client.ui.AppUpdater.check(this)
         if (profiles.isEmpty()) {
             binding.textPcAddress.text = "nessuna connessione configurata"
             setConnStatus(false, "non configurato")

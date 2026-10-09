@@ -72,11 +72,24 @@ class HudNavBar @JvmOverloads constructor(
                 setBackgroundColor(if (selected) context.getColor(R.color.cyan_glow) else 0)
                 layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(2))
             })
-            cell.addView(ImageView(context).apply {
+            val iconFrame = android.widget.FrameLayout(context).apply {
+                layoutParams = LayoutParams(dp(26), dp(20)).apply { topMargin = dp(7) }
+            }
+            iconFrame.addView(ImageView(context).apply {
                 setImageResource(item.icon)
                 imageTintList = ColorStateList.valueOf(color)
-                layoutParams = LayoutParams(dp(20), dp(20)).apply { topMargin = dp(7) }
+                layoutParams = android.widget.FrameLayout.LayoutParams(dp(20), dp(20), Gravity.START)
             })
+            if (item.key == 4) {
+                // puntino "aggiornamento disponibile", come sulla dashboard PC
+                updateDot = View(context).apply {
+                    setBackgroundResource(R.drawable.bg_dot_warn)
+                    visibility = if (AppUpdater.updateAvailable) VISIBLE else GONE
+                    layoutParams = android.widget.FrameLayout.LayoutParams(dp(8), dp(8), Gravity.END or Gravity.TOP)
+                }
+                iconFrame.addView(updateDot)
+            }
+            cell.addView(iconFrame)
             val label = TextView(context, null, 0, R.style.Text_Hud_Eyebrow).apply {
                 text = item.label
                 gravity = Gravity.CENTER
@@ -93,6 +106,22 @@ class HudNavBar @JvmOverloads constructor(
             row.addView(cell)
         }
         addView(row)
+    }
+
+    private var updateDot: View? = null
+    private val onUpdateChange: () -> Unit = {
+        updateDot?.visibility = if (AppUpdater.updateAvailable) VISIBLE else GONE
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        AppUpdater.listeners.add(onUpdateChange)
+        onUpdateChange()
+    }
+
+    override fun onDetachedFromWindow() {
+        AppUpdater.listeners.remove(onUpdateChange)
+        super.onDetachedFromWindow()
     }
 
     private fun go(item: Item) {

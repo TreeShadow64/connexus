@@ -59,10 +59,7 @@ class SettingsActivity : AppCompatActivity() {
             startActivity(Intent.createChooser(intent, "Invia feedback"))
         }
 
-        binding.textAppVersion.text = "versione ${packageManager.getPackageInfo(packageName, 0).versionName}"
 
-        binding.buttonUpdateApp.setOnClickListener { startUpdate() }
-        checkForUpdate()
 
         binding.buttonResetData.setOnClickListener { confirmReset() }
     }
@@ -137,122 +134,6 @@ class SettingsActivity : AppCompatActivity() {
             }
             .setNegativeButton("Annulla", null)
             .show()
-    }
-
-    private var latestTag: String? = null
-    private var latestApkUrl: String? = null
-
-    private fun installedVersion(): String =
-        try { packageManager.getPackageInfo(packageName, 0).versionName.orEmpty() } catch (e: Exception) { "" }
-
-    private fun versionParts(v: String): List<Int> =
-        v.removePrefix("v").split(".").mapNotNull { it.toIntOrNull() }
-
-    private fun isNewer(tag: String, current: String): Boolean {
-        val a = versionParts(tag)
-        val b = versionParts(current)
-        for (i in 0 until maxOf(a.size, b.size)) {
-            val x = a.getOrElse(i) { 0 }
-            val y = b.getOrElse(i) { 0 }
-            if (x != y) return x > y
-        }
-        return false
-    }
-
-    /** Controllo silenzioso: all'apertura della pagina dice subito se c'e' una
-     * versione nuova, senza scaricare nulla. */
-    private fun checkForUpdate(onDone: (() -> Unit)? = null) {
-        Thread {
-            try {
-                val apiResponse = OkHttpClient().newCall(Request.Builder().url(RELEASES_API).build()).execute()
-                if (!apiResponse.isSuccessful) throw java.io.IOException("HTTP ${apiResponse.code}")
-                val release = JSONObject(apiResponse.body?.string().orEmpty())
-                val assets = release.getJSONArray("assets")
-                var apkUrl: String? = null
-                for (i in 0 until assets.length()) {
-                    val asset = assets.getJSONObject(i)
-                    if (asset.getString("name").endsWith(".apk")) {
-                        apkUrl = asset.getString("browser_download_url")
-                        break
-                    }
-                }
-                val tag = release.optString("tag_name")
-                runOnUiThread {
-                    latestTag = tag
-                    latestApkUrl = apkUrl
-                    val current = installedVersion()
-                    when {
-                        apkUrl == null -> binding.textUpdateStatus.text = "Nessun APK nell'ultima release"
-                        isNewer(tag, current) -> {
-                            binding.textUpdateStatus.text = "Disponibile la versione ${tag.removePrefix("v")} (hai la $current)"
-                            binding.buttonUpdateApp.text = "AGGIORNA A ${tag.removePrefix("v")}"
-                        }
-                        else -> binding.textUpdateStatus.text = "Sei gia' alla versione piu' recente ($current)"
-                    }
-                    onDone?.invoke()
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    binding.textUpdateStatus.text = "Controllo aggiornamenti non riuscito: ${e.message}"
-                    onDone?.invoke()
-                }
-            }
-        }.start()
-    }
-
-    private fun startUpdate() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
-            binding.textUpdateStatus.text = "Concedi il permesso di installare app, poi tocca di nuovo AGGIORNA"
-            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
-            return
-        }
-        binding.buttonUpdateApp.isEnabled = false
-        binding.textUpdateStatus.text = "Controllo aggiornamenti..."
-        checkForUpdate {
-            val tag = latestTag
-            val url = latestApkUrl
-            if (tag != null && url != null && isNewer(tag, installedVersion())) {
-                downloadAndInstall(url)
-            } else {
-                binding.buttonUpdateApp.isEnabled = true
-            }
-        }
-    }
-
-    /** Scarica l'ultima release da GitHub invece che dal PC abbinato: deve
-     * funzionare anche fuori casa e col PC spento, non solo in LAN. */
-    private fun downloadAndInstall(apkUrl: String) {
-        binding.buttonUpdateApp.isEnabled = false
-        binding.textUpdateStatus.text = "Download in corso..."
-        Thread {
-            try {
-                val response = OkHttpClient().newCall(Request.Builder().url(apkUrl).build()).execute()
-                if (!response.isSuccessful) throw java.io.IOException("HTTP ${response.code}")
-
-                val updatesDir = File(cacheDir, "updates").apply { mkdirs() }
-                val apkFile = File(updatesDir, "hub-client.apk")
-                response.body?.byteStream()?.use { input ->
-                    apkFile.outputStream().use { output -> input.copyTo(output) }
-                }
-
-                runOnUiThread {
-                    binding.buttonUpdateApp.isEnabled = true
-                    binding.textUpdateStatus.text = "Download completato: conferma l'installazione"
-                    val apkUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", apkFile)
-                    val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                        setDataAndType(apkUri, "application/vnd.android.package-archive")
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    startActivity(installIntent)
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    binding.buttonUpdateApp.isEnabled = true
-                    binding.textUpdateStatus.text = "Aggiornamento fallito: ${e.message}"
-                }
-            }
-        }.start()
     }
 
     private fun confirmReset() {

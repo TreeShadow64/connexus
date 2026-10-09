@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.hubpc.client.databinding.ActivitySystemBinding
+import com.hubpc.client.ui.AppUpdater
 import com.hubpc.client.ui.Hud
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -81,6 +82,10 @@ class SystemActivity : AppCompatActivity() {
             log("Avvio di ProtonVPN sul PC...")
         }
         binding.buttonSetupApps.setOnClickListener { showAppsSetup() }
+
+        binding.textAppVersion.text = "versione ${AppUpdater.installedVersion(this)}"
+        binding.buttonUpdateApp.setOnClickListener { startUpdate() }
+        refreshUpdateStatus()
 
         binding.buttonGetMac.setOnClickListener {
             sendCommand(JSONObject().put("type", "get_mac_address"))
@@ -176,6 +181,43 @@ class SystemActivity : AppCompatActivity() {
                 log(json.optString("message"))
             }
         }
+    }
+
+    private fun refreshUpdateStatus() {
+        binding.textUpdateStatus.text = "Controllo aggiornamenti..."
+        AppUpdater.check(this, force = true) { latest, error ->
+            val current = AppUpdater.installedVersion(this)
+            when {
+                error != null -> binding.textUpdateStatus.text = "Controllo non riuscito: $error"
+                latest?.apkUrl == null -> binding.textUpdateStatus.text = "Nessun APK nell'ultima release"
+                AppUpdater.updateAvailable -> {
+                    val v = latest.tag.removePrefix("v")
+                    binding.textUpdateStatus.text = "Disponibile la versione $v (hai la $current)"
+                    binding.buttonUpdateApp.text = "AGGIORNA A $v"
+                }
+                else -> {
+                    binding.textUpdateStatus.text = "Sei gia' alla versione piu' recente ($current)"
+                    binding.buttonUpdateApp.text = "CONTROLLA AGGIORNAMENTI"
+                }
+            }
+        }
+    }
+
+    private fun startUpdate() {
+        val url = AppUpdater.latest?.apkUrl
+        if (!AppUpdater.updateAvailable || url == null) {
+            refreshUpdateStatus()
+            return
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+            binding.textUpdateStatus.text = "Concedi il permesso di installare app, poi tocca di nuovo AGGIORNA"
+            startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+            return
+        }
+        binding.buttonUpdateApp.isEnabled = false
+        AppUpdater.downloadAndInstall(this, url,
+            onStatus = { binding.textUpdateStatus.text = it },
+            onFinished = { binding.buttonUpdateApp.isEnabled = true })
     }
 
     private var appsConfig: JSONObject? = null
