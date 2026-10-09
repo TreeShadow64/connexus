@@ -24,8 +24,8 @@ android {
         applicationId = "com.hubpc.client"
         minSdk = 24
         targetSdk = 34
-        versionCode = 38
-        versionName = "0.38"
+        versionCode = 39
+        versionName = "0.39"
     }
 
     signingConfigs {
@@ -42,6 +42,9 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            // WireGuard porta librerie native per ogni processore: nei telefoni veri
+            // servono solo quelli ARM (gli emulatori x86 usano la build di debug)
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
