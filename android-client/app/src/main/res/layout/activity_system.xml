@@ -170,6 +170,59 @@
                     android:text="AVVIA PROTONVPN" />
             </LinearLayout>
 
+            <!-- parsec e protonvpn sul pc -->
+            <LinearLayout
+                style="@style/HudPanel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/Text.Hud.Eyebrow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="programmi sul pc" />
+
+                <TextView
+                    android:id="@+id/textAppsStatus"
+                    style="@style/Text.Hud.Value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="PC non collegato" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/buttonLaunchParsec"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:text="AVVIA PARSEC" />
+
+                    <Button
+                        android:id="@+id/buttonLaunchPcVpn"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:text="VPN SUL PC" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/buttonSetupApps"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="IMPOSTA PARSEC / VPN" />
+            </LinearLayout>
+
             <!-- accesso da fuori casa -->
             <LinearLayout
                 style="@style/HudPanel"

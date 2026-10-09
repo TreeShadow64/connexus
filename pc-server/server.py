@@ -26,6 +26,7 @@ import psutil
 
 from core import auth
 from core import dashboard_server
+from core import external_apps
 from casting import dlna_cast
 from casting import dlna_server
 from files import file_browser
@@ -50,9 +51,6 @@ VIRTUALCAM_PORT = 8769
 # 8771 dashboard, 8772 DLNA: la webcam UVC non puo' stare su nessuna di queste.
 UVCCAM_PORT = 8773
 
-PARSEC_EXE = r"C:\Program Files\Parsec\parsecd.exe"
-PROTONVPN_EXE = r"C:\Program Files\Proton\VPN\ProtonVPN.Launcher.exe"
-PARSEC_CONFIG_PATH = app_dir() / "parsec_config.json"
 WEBOS_CONFIG_PATH = app_dir() / "webos_config.json"
 MEDIA_DIR = app_dir() / "media"
 MEDIA_DIR.mkdir(exist_ok=True)
@@ -211,12 +209,8 @@ def handle_command(data, conn_key=None, peer_ip=None):
             return {"type": "tv_ok", "message": "Comando UAC inviato"}
         except service_client.ServiceUnavailable as e:
             return {"type": "tv_error", "message": f"Servizio non disponibile: {str(e) or type(e).__name__}"}
-    elif cmd == "launch_parsec":
-        launch_parsec()
-    elif cmd == "launch_vpn":
-        ok = launch_vpn()
-        return {"type": "vpn_ok", "message": "ProtonVPN avviato"} if ok else \
-               {"type": "vpn_error", "message": "ProtonVPN non trovato sul PC"}
+    elif cmd in ("launch_parsec", "launch_vpn", "apps_get", "apps_set"):
+        return handle_external_apps(cmd, data)
     elif cmd == "system_power":
         return system_power(data.get("action", ""))
     elif cmd == "get_mac_address":
@@ -462,28 +456,18 @@ ASYNC_COMMANDS = {
 }
 
 
-def launch_parsec():
-    if not Path(PARSEC_EXE).exists():
-        log.warning(f"Parsec non trovato in {PARSEC_EXE}")
-        return
-    try:
-        peer_id = json.loads(PARSEC_CONFIG_PATH.read_text()).get("peer_id", "").strip()
-    except (OSError, json.JSONDecodeError):
-        peer_id = ""
-    if not peer_id:
-        log.warning("Nessun peer_id configurato in parsec_config.json")
-        return
-    subprocess.Popen([PARSEC_EXE, f"peer_id={peer_id}"])
-    log.info(f"Avviato Parsec verso peer_id={peer_id}")
-
-
-def launch_vpn():
-    if not Path(PROTONVPN_EXE).exists():
-        log.warning(f"ProtonVPN non trovato in {PROTONVPN_EXE}")
-        return False
-    subprocess.Popen([PROTONVPN_EXE])
-    log.info("Avviato ProtonVPN")
-    return True
+def handle_external_apps(cmd, data):
+    """Parsec e ProtonVPN sul PC: stessi comandi per telefono (WebSocket) e dashboard."""
+    if cmd == "apps_get":
+        return {"type": "apps_config", **external_apps.get_config()}
+    if cmd == "apps_set":
+        ok, message = external_apps.set_config(
+            data.get("parsec_path"), data.get("parsec_peer_id"), data.get("protonvpn_path"))
+    elif cmd == "launch_parsec":
+        ok, message = external_apps.launch_parsec()
+    else:
+        ok, message = external_apps.launch_vpn()
+    return {"type": "app_ok" if ok else "app_error", "message": message}
 
 
 def get_mac_address():
@@ -1396,6 +1380,7 @@ def collect_dashboard_status():
     semplice da serializzare in JSON."""
     with shared_devices_lock:
         shares = list(shared_devices.values())
+    apps = external_apps.get_config()
     return {
         "hostname": platform.node() or "PC",
         "uptime_seconds": time.time() - SERVER_START_TIME,
@@ -1404,6 +1389,9 @@ def collect_dashboard_status():
         "projector_active": projector_viewer.is_active,
         "remote_screen_blocked": remote_screen_blocked,
         "remote_webcam_blocked": remote_webcam_blocked,
+        "parsec_found": apps["parsec"]["found"],
+        "parsec_peer_set": bool(apps["parsec"]["peer_id"]),
+        "vpn_found": apps["protonvpn"]["found"],
         "tv_paired": bool(_load_webos_config().get("client_key")),
         "tv_ip": _load_webos_config().get("tv_ip", ""),
         "tv_name": _load_webos_config().get("tv_name", ""),
@@ -1501,6 +1489,8 @@ def handle_dashboard_action(action, payload):
         return start_tv_share(payload.get("folder", ""))
     if action == "stop_tv_share":
         return stop_tv_share()
+    if action in ("launch_parsec", "launch_vpn", "apps_get", "apps_set"):
+        return handle_external_apps(action, payload)
     return {"ok": False, "error": "azione sconosciuta"}
 
 

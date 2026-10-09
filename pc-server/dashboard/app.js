@@ -918,6 +918,38 @@ async function applyUpdate(zipUrl) {
     // aggiornare i file: status.json smettera' di rispondere per un attimo.
 }
 
+// ---------- programmi esterni (Parsec, ProtonVPN sul PC) ----------
+
+async function launchExternalApp(action) {
+    const result = await runAction(action);
+    await hudAlert(result.message || result.error || "Fatto");
+}
+
+async function setupExternalApps() {
+    const cfg = await runAction("apps_get");
+    if (!cfg.parsec) { await hudAlert(cfg.error || "Impostazioni non disponibili"); return; }
+    const peer = await hudPrompt(
+        "ID Parsec del computer a cui collegarti (vuoto = cancella)", cfg.parsec.peer_id || "");
+    if (peer === null) return;
+    const payload = { parsec_peer_id: peer };
+    if (!cfg.parsec.found) {
+        const path = await hudPrompt(
+            "Parsec non trovato: percorso di parsecd.exe (vuoto = ricerca automatica)", cfg.parsec.custom_path || "");
+        if (path === null) return;
+        payload.parsec_path = path;
+    }
+    if (!cfg.protonvpn.found) {
+        const path = await hudPrompt(
+            "ProtonVPN non trovato: percorso di ProtonVPN.Launcher.exe (vuoto = ricerca automatica)",
+            cfg.protonvpn.custom_path || "");
+        if (path === null) return;
+        payload.protonvpn_path = path;
+    }
+    const result = await runAction("apps_set", payload);
+    await hudAlert(result.message || result.error || "Fatto");
+    loadStatus();
+}
+
 function renderSistemaView(status) {
     let updateValue = `versione ${status.app_version}`;
     let updateActions = `<button class="hud-button" onclick="checkForUpdate()">CONTROLLA AGGIORNAMENTI</button>`;
@@ -944,6 +976,15 @@ function renderSistemaView(status) {
             "servizio elevato · sblocco uac / schermata di blocco da remoto", "Servizio Windows",
             status.service_installed ? "installato e attivo" : "non installato",
             status.service_installed ? "on" : "warn"
+        ),
+        statCard(
+            "programmi sul pc · avviabili anche dal telefono", "Parsec e ProtonVPN",
+            `Parsec: ${status.parsec_found ? (status.parsec_peer_set ? "pronto" : "manca l'ID") : "non trovato"} — `
+                + `ProtonVPN: ${status.vpn_found ? "trovato" : "non trovato"}`,
+            (status.parsec_found && status.parsec_peer_set) || status.vpn_found ? "on" : "off",
+            `<button class="hud-button" onclick="launchExternalApp('launch_parsec')">AVVIA PARSEC</button> `
+                + `<button class="hud-button" onclick="launchExternalApp('launch_vpn')">AVVIA PROTONVPN</button> `
+                + `<button class="hud-button" onclick="setupExternalApps()">IMPOSTA</button>`
         ),
         statCard(
             "trova dispositivo · relay firebase", "Abbinamento account",

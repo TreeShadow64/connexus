@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.hubpc.client.databinding.ActivitySystemBinding
+import com.hubpc.client.ui.Hud
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -70,6 +71,16 @@ class SystemActivity : AppCompatActivity() {
         }
 
         binding.buttonLaunchVpn.setOnClickListener { launchProtonVpn() }
+
+        binding.buttonLaunchParsec.setOnClickListener {
+            sendCommand(JSONObject().put("type", "launch_parsec"))
+            log("Avvio di Parsec sul PC...")
+        }
+        binding.buttonLaunchPcVpn.setOnClickListener {
+            sendCommand(JSONObject().put("type", "launch_vpn"))
+            log("Avvio di ProtonVPN sul PC...")
+        }
+        binding.buttonSetupApps.setOnClickListener { showAppsSetup() }
 
         binding.buttonGetMac.setOnClickListener {
             sendCommand(JSONObject().put("type", "get_mac_address"))
@@ -144,8 +155,14 @@ class SystemActivity : AppCompatActivity() {
                 authenticated = true
                 log("Connesso.")
                 sendCommand(JSONObject().put("type", "service_status"))
+                sendCommand(JSONObject().put("type", "apps_get"))
             }
             "auth_error" -> log("Autenticazione fallita")
+            "apps_config" -> showAppsConfig(json)
+            "app_ok", "app_error" -> {
+                log(json.optString("message"))
+                if (json.optString("type") == "app_ok") sendCommand(JSONObject().put("type", "apps_get"))
+            }
             "mac_address" -> {
                 val mac = json.optString("mac")
                 binding.editMac.setText(mac)
@@ -159,6 +176,68 @@ class SystemActivity : AppCompatActivity() {
                 log(json.optString("message"))
             }
         }
+    }
+
+    private var appsConfig: JSONObject? = null
+
+    private fun showAppsConfig(json: JSONObject) {
+        appsConfig = json
+        val parsec = json.optJSONObject("parsec")
+        val vpn = json.optJSONObject("protonvpn")
+        val parsecText = when {
+            parsec == null || !parsec.optBoolean("found") -> "non trovato"
+            parsec.optString("peer_id").isEmpty() -> "manca l'ID"
+            else -> "pronto"
+        }
+        val vpnText = if (vpn != null && vpn.optBoolean("found")) "trovato" else "non trovato"
+        binding.textAppsStatus.text = "Parsec: $parsecText - ProtonVPN: $vpnText"
+    }
+
+    /** ID Parsec e, solo se i programmi non vengono trovati da soli, i loro percorsi. */
+    private fun showAppsSetup() {
+        val cfg = appsConfig
+        if (cfg == null) {
+            log("PC non collegato: impossibile leggere le impostazioni")
+            return
+        }
+        val parsec = cfg.optJSONObject("parsec")
+        val vpn = cfg.optJSONObject("protonvpn")
+        fun field(hint: String, value: String) =
+            android.widget.EditText(this, null, 0, R.style.Widget_Hud_EditText).apply {
+                this.hint = hint
+                setText(value)
+                setSingleLine()
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = Hud.dp(this@SystemActivity, 10) }
+            }
+        val peerField = field("ID Parsec del computer (vuoto = cancella)", parsec?.optString("peer_id").orEmpty())
+        val parsecPath = field("percorso di parsecd.exe (vuoto = automatico)", parsec?.optString("custom_path").orEmpty())
+        val vpnPath = field("percorso di ProtonVPN.Launcher.exe (vuoto = automatico)", vpn?.optString("custom_path").orEmpty())
+        val showParsecPath = parsec?.optBoolean("found") != true
+        val showVpnPath = vpn?.optBoolean("found") != true
+        val content = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(Hud.dp(this@SystemActivity, 20), Hud.dp(this@SystemActivity, 8), Hud.dp(this@SystemActivity, 20), 0)
+            if (showParsecPath || showVpnPath) {
+                addView(Hud.status(this@SystemActivity, "un programma non e' stato trovato da solo: indica dove si trova"))
+            }
+            addView(peerField)
+            if (showParsecPath) addView(parsecPath)
+            if (showVpnPath) addView(vpnPath)
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Parsec e VPN sul PC")
+            .setView(content)
+            .setPositiveButton("SALVA") { _, _ ->
+                val cmd = JSONObject().put("type", "apps_set").put("parsec_peer_id", peerField.text.toString().trim())
+                if (showParsecPath) cmd.put("parsec_path", parsecPath.text.toString().trim())
+                if (showVpnPath) cmd.put("protonvpn_path", vpnPath.text.toString().trim())
+                sendCommand(cmd)
+            }
+            .setNegativeButton("ANNULLA", null)
+            .show()
     }
 
     private fun log(message: String) {
