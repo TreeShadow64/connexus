@@ -24,6 +24,22 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
     private var profiles: MutableList<ConnectionProfile> = mutableListOf()
 
+    private val qrScanner = registerForActivityResult(com.journeyapps.barcodescanner.ScanContract()) { result ->
+        val contents = result.contents ?: return@registerForActivityResult
+        val pairing = PairingQr.parse(contents)
+        if (pairing == null) {
+            android.widget.Toast.makeText(this, "Questo codice non e' di Connexus", android.widget.Toast.LENGTH_LONG).show()
+            return@registerForActivityResult
+        }
+        // stesso PC gia' presente: si aggiorna invece di duplicarlo
+        val existing = profiles.indexOfFirst { it.ip == pairing.ip }
+        val profile = ConnectionProfile(pairing.name, pairing.ip, pairing.token)
+        if (existing >= 0) profiles[existing] = profile else profiles.add(profile)
+        ConnectionProfiles.save(this, profiles)
+        renderProfiles()
+        android.widget.Toast.makeText(this, "Collegato a ${pairing.name}", android.widget.Toast.LENGTH_LONG).show()
+    }
+
     companion object {
         private const val PREFS_NAME = HubApplication.PREFS_NAME
         private const val FEEDBACK_EMAIL = "dario.ryzza@gmail.com"
@@ -47,6 +63,7 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.helpConnection.setOnClickListener { HelpDialogs.showConnectionHelp(this) }
         binding.buttonAddProfile.setOnClickListener { showProfileDialog(null) }
+        binding.buttonScanQr.setOnClickListener { qrScanner.launch(PairingQr.scanOptions()) }
         profiles = ConnectionProfiles.load(this)
         renderProfiles()
 

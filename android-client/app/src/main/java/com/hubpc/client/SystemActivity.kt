@@ -100,6 +100,8 @@ class SystemActivity : AppCompatActivity() {
         binding.buttonVpnToggle.setOnClickListener { toggleVpn() }
         binding.buttonVpnChoose.setOnClickListener { chooseVpnServer() }
         binding.buttonVpnImport.setOnClickListener { vpnImportPicker.launch(arrayOf("*/*")) }
+        binding.buttonVpnGuide.setOnClickListener { showVpnGuide() }
+        binding.buttonVpnOtherApp.setOnClickListener { openProtonApp() }
         refreshVpnUi()
 
         binding.buttonLaunchParsec.setOnClickListener {
@@ -197,6 +199,47 @@ class SystemActivity : AppCompatActivity() {
             .show()
     }
 
+    /** Spiega come ottenere i file di configurazione: serve un account Proton (anche gratuito). */
+    private fun showVpnGuide() {
+        val steps = "1. Crea un account Proton gratuito (o accedi se ce l'hai gia').\n\n" +
+            "2. Apri la pagina Download e, sotto \"Configurazione WireGuard\", scegli Android e " +
+            "\"Configurazioni dei server gratuiti\".\n\n" +
+            "3. Premi Crea su uno o due server per paese e poi Scarica: ottieni dei file .conf.\n\n" +
+            "4. Qui premi IMPORTA FILE e seleziona i file scaricati. Poi scegli il server e premi CONNETTI.\n\n" +
+            "I file contengono una chiave personale: non condividerli con nessuno. " +
+            "Con il piano gratuito si usa un solo dispositivo alla volta. " +
+            "Funzionano anche i file WireGuard di altri fornitori VPN."
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Come ottenere la VPN")
+            .setMessage(steps)
+            .setPositiveButton("APRI LA PAGINA PROTON") { _, _ ->
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://account.protonvpn.com/downloads")))
+            }
+            .setNegativeButton("CHIUDI", null)
+            .show()
+    }
+
+    /** Alternativa semplice: usa l'app Proton VPN (o la propone dallo Store). */
+    private fun openProtonApp() {
+        val launch = packageManager.getLaunchIntentForPackage(PROTONVPN_PACKAGE)
+        if (launch != null) {
+            startActivity(launch)
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$PROTONVPN_PACKAGE")))
+        } catch (e: android.content.ActivityNotFoundException) {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$PROTONVPN_PACKAGE")))
+        }
+    }
+
+    /** Vero se il telefono ha una VPN attiva, anche di un'altra app. */
+    private fun anyVpnActive(): Boolean {
+        val cm = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        return caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)
+    }
+
     private fun importVpnConfigs(uris: List<Uri>) {
         val store = vpnStore ?: return toast("Archivio VPN non disponibile su questo telefono")
         var added = 0
@@ -235,9 +278,13 @@ class SystemActivity : AppCompatActivity() {
                 binding.textVpnStatus.text = "Archivio VPN non disponibile"
                 binding.textVpnDetail.text = ""
             }
+            !up && anyVpnActive() -> {
+                binding.textVpnStatus.text = "VPN attiva (da un'altra app)"
+                binding.textVpnDetail.text = "La gestisce l'app che l'ha accesa; da qui puoi solo vederla"
+            }
             count == 0 -> {
                 binding.textVpnStatus.text = "Nessuna configurazione"
-                binding.textVpnDetail.text = "Scarica i file WireGuard dal tuo account Proton e importali qui"
+                binding.textVpnDetail.text = "Premi COME FARE per ottenerle, oppure usa l'app Proton VPN"
             }
             !up -> {
                 binding.textVpnStatus.text = "VPN spenta"

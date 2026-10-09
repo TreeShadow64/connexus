@@ -105,6 +105,23 @@
         </LinearLayout>
 
         <Button
+            android:id="@+id/buttonScanQr"
+            style="@style/Widget.Hud.Button.Accent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="SCANSIONA IL CODICE QR DAL PC" />
+
+        <TextView
+            style="@style/Text.Hud.Status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:text="sul PC: dashboard → Impostazioni → Collega un telefono → MOSTRA QR"
+            android:textAllCaps="false" />
+
+        <Button
             android:id="@+id/buttonStart"
             style="@style/Widget.Hud.Button.Accent"
             android:layout_width="match_parent"

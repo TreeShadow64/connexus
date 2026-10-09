@@ -27,6 +27,7 @@ import psutil
 from core import auth
 from core import dashboard_server
 from core import external_apps
+from core import pairing
 from casting import dlna_cast
 from casting import dlna_server
 from files import file_browser
@@ -1487,6 +1488,14 @@ def handle_dashboard_action(action, payload):
         return stop_tv_share()
     if action in ("launch_parsec", "launch_vpn", "apps_get", "apps_set"):
         return handle_external_apps(action, payload)
+    if action == "pair_qr":
+        # il token viaggia solo nella risposta a questa richiesta locale (POST dalla
+        # dashboard sul PC); non viene scritto nei log
+        try:
+            return {"ok": True, "svg": pairing.qr_svg(), "ip": pairing.lan_ip(),
+                    "name": platform.node() or "PC"}
+        except Exception as e:
+            return {"ok": False, "error": f"codice QR non disponibile: {e}"}
     return {"ok": False, "error": "azione sconosciuta"}
 
 

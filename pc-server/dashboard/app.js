@@ -917,6 +917,45 @@ async function applyUpdate(zipUrl) {
     // se ok l'avanzamento arriva da status.json; a fine download il programma si riavvia da solo
 }
 
+// ---------- collegamento del telefono con codice QR ----------
+
+async function showPairQr() {
+    const result = await runAction("pair_qr");
+    if (!result.ok) { await hudAlert(result.error || "Codice QR non disponibile"); return; }
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "hud-dialog-backdrop";
+    const box = document.createElement("div");
+    box.className = "hud-dialog";
+    box.style.width = "min(380px, 90vw)";
+
+    const title = document.createElement("div");
+    title.className = "hud-dialog-message";
+    title.textContent = "Apri Connexus sul telefono e inquadra questo codice";
+    const qr = document.createElement("div");
+    qr.style.cssText = "background:#fff; padding:6px; margin:6px auto 12px; width:max-content; max-width:100%;";
+    qr.innerHTML = result.svg;
+    const svg = qr.querySelector("svg");
+    if (svg) { svg.style.display = "block"; svg.style.width = "240px"; svg.style.height = "240px"; }
+    const note = document.createElement("div");
+    note.className = "hud-mono";
+    note.style.cssText = "font-size:11px; color:var(--text-dim); margin-bottom:14px; line-height:1.5;";
+    note.textContent = `${result.name} · ${result.ip} — il codice contiene la chiave di accesso: non mostrarlo ad altri. Si chiude da solo tra 2 minuti.`;
+
+    const actions = document.createElement("div");
+    actions.className = "hud-dialog-actions";
+    const close = document.createElement("button");
+    close.className = "hud-button";
+    close.textContent = "CHIUDI";
+    const dismiss = () => { clearTimeout(timer); backdrop.remove(); };
+    close.addEventListener("click", dismiss);
+    const timer = setTimeout(dismiss, 120000);
+    actions.appendChild(close);
+    box.append(title, qr, note, actions);
+    backdrop.appendChild(box);
+    document.body.appendChild(backdrop);
+}
+
 // ---------- programmi esterni (Parsec, ProtonVPN sul PC) ----------
 
 async function launchExternalApp(action) {
@@ -994,6 +1033,12 @@ function renderSistemaView(status) {
             "servizio elevato · sblocco uac / schermata di blocco da remoto", "Servizio Windows",
             status.service_installed ? "installato e attivo" : "non installato",
             status.service_installed ? "on" : "warn"
+        ),
+        statCard(
+            "collegamento · senza scrivere IP e token", "Collega un telefono",
+            "inquadra il codice QR con l'app Connexus",
+            "on",
+            `<button class="hud-button" onclick="showPairQr()">MOSTRA QR</button>`
         ),
         statCard(
             "programmi sul pc · avviabili anche dal telefono", "Parsec e ProtonVPN",

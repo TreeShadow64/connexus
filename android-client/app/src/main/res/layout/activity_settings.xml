@@ -107,6 +107,13 @@
                 android:layout_height="wrap_content"
                 android:text="+ AGGIUNGI CONNESSIONE" />
 
+            <Button
+                android:id="@+id/buttonScanQr"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="SCANSIONA QR DAL PC" />
+
             <!-- assistenza -->
             <LinearLayout
                 style="@style/HudPanel"

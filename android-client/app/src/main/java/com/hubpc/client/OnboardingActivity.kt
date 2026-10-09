@@ -24,12 +24,25 @@ class OnboardingActivity : AppCompatActivity() {
         private const val PREF_ONBOARDED = "onboarded"
     }
 
+    private val qrScanner = registerForActivityResult(com.journeyapps.barcodescanner.ScanContract()) { result ->
+        val contents = result.contents ?: return@registerForActivityResult
+        val pairing = PairingQr.parse(contents)
+        if (pairing == null) {
+            binding.textOnboardingStatus.text = "Questo codice non e' di Connexus: usa quello mostrato dal PC"
+        } else {
+            binding.editIp.setText(pairing.ip)
+            binding.editToken.setText(pairing.token)
+            testAndSave()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityOnboardingBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         binding.buttonStart.setOnClickListener { testAndSave() }
+        binding.buttonScanQr.setOnClickListener { qrScanner.launch(PairingQr.scanOptions()) }
         binding.helpConnection.setOnClickListener { HelpDialogs.showConnectionHelp(this) }
     }
 

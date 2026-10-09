@@ -72,6 +72,7 @@ dependencies {
     // VPN integrata: motore WireGuard ufficiale (Apache-2.0) e archivio cifrato
     // per le configurazioni, che contengono chiavi private.
     implementation("com.wireguard.android:tunnel:1.0.20230706")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")  // lettore QR per il collegamento al PC
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     val cameraxVersion = "1.3.4"
@@ -97,4 +98,6 @@ dependencies {
     // su quello di runtime), e CameraX (che la usa nelle sue API) non compila
     // piu' con "Cannot access class ListenableFuture".
     implementation("com.google.guava:guava:32.1.3-android")
+
+    testImplementation("junit:junit:4.13.2")
 }

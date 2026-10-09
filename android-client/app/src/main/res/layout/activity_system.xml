@@ -202,12 +202,42 @@
                         android:text="SCEGLI SERVER" />
                 </LinearLayout>
 
-                <Button
-                    android:id="@+id/buttonVpnImport"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="IMPORTA CONFIGURAZIONI" />
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/buttonVpnImport"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:text="IMPORTA FILE" />
+
+                    <Button
+                        android:id="@+id/buttonVpnGuide"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:text="COME FARE" />
+                </LinearLayout>
+
+                <TextView
+                    style="@style/Text.Hud.Eyebrow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="oppure, piu' semplice" />
+
+                <Button
+                    android:id="@+id/buttonVpnOtherApp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="APRI L'APP PROTON VPN" />
             </LinearLayout>
 
             <!-- parsec e protonvpn sul pc -->
