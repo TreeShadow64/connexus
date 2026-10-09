@@ -24,6 +24,11 @@ class SystemActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySystemBinding
     private var webSocket: WebSocket? = null
     private var authenticated = false
+    private var connecting = false
+    private var connIp = ""
+    private var connToken = ""
+    private val pendingCommands = mutableListOf<JSONObject>()
+    private var openSetupWhenReady = false
 
     companion object {
         private const val PREFS_NAME = HubApplication.PREFS_NAME
@@ -38,6 +43,8 @@ class SystemActivity : AppCompatActivity() {
 
         val ip = intent.getStringExtra("ip").orEmpty()
         val token = intent.getStringExtra("token").orEmpty()
+        connIp = ip
+        connToken = token
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         binding.editMac.setText(prefs.getString(PREF_MAC, ""))
@@ -127,13 +134,32 @@ class SystemActivity : AppCompatActivity() {
 
     private fun sendCommand(json: JSONObject) {
         if (!authenticated) {
-            log("Non ancora autenticato")
+            if (connIp.isEmpty() || connToken.isEmpty()) {
+                toast("PC non collegato: apri prima la schermata principale")
+                return
+            }
+            // il collegamento e' caduto (es. il PC si e' riavviato): si ricollega e riprova
+            pendingCommands.add(json)
+            toast("Mi ricollego al PC...")
+            if (!connecting) connect(connIp, connToken)
             return
         }
         webSocket?.send(json.toString())
     }
 
+    private fun markDisconnected() {
+        authenticated = false
+        connecting = false
+        binding.textAppsStatus.text = "PC non collegato"
+    }
+
+    private fun toast(message: String) {
+        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show()
+        log(message)
+    }
+
     private fun connect(ip: String, token: String) {
+        connecting = true
         val client = OkHttpClient()
         val request = Request.Builder().url("ws://$ip:8765").build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
@@ -147,8 +173,19 @@ class SystemActivity : AppCompatActivity() {
 
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {}
 
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                runOnUiThread { markDisconnected() }
+            }
+
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                runOnUiThread { markDisconnected() }
+            }
+
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                runOnUiThread { log("Errore: ${t.message}") }
+                runOnUiThread {
+                    markDisconnected()
+                    log("Errore: ${t.message}")
+                }
             }
         })
     }
@@ -158,12 +195,20 @@ class SystemActivity : AppCompatActivity() {
         when (json.optString("type")) {
             "auth_ok" -> {
                 authenticated = true
+                connecting = false
+                pendingCommands.toList().also { pendingCommands.clear() }.forEach { webSocket?.send(it.toString()) }
                 log("Connesso.")
                 sendCommand(JSONObject().put("type", "service_status"))
                 sendCommand(JSONObject().put("type", "apps_get"))
             }
             "auth_error" -> log("Autenticazione fallita")
-            "apps_config" -> showAppsConfig(json)
+            "apps_config" -> {
+                showAppsConfig(json)
+                if (openSetupWhenReady) {
+                    openSetupWhenReady = false
+                    showAppsSetup()
+                }
+            }
             "app_ok", "app_error" -> {
                 log(json.optString("message"))
                 if (json.optString("type") == "app_ok") sendCommand(JSONObject().put("type", "apps_get"))
@@ -239,7 +284,8 @@ class SystemActivity : AppCompatActivity() {
     private fun showAppsSetup() {
         val cfg = appsConfig
         if (cfg == null) {
-            log("PC non collegato: impossibile leggere le impostazioni")
+            openSetupWhenReady = true
+            sendCommand(JSONObject().put("type", "apps_get"))
             return
         }
         val parsec = cfg.optJSONObject("parsec")
