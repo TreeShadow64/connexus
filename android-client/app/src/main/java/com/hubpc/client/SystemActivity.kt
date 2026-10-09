@@ -9,6 +9,8 @@ import androidx.appcompat.app.AppCompatActivity
 import com.hubpc.client.databinding.ActivitySystemBinding
 import com.hubpc.client.ui.AppUpdater
 import com.hubpc.client.ui.Hud
+import com.hubpc.client.vpn.VpnController
+import com.hubpc.client.vpn.VpnStore
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -25,6 +27,20 @@ class SystemActivity : AppCompatActivity() {
     private var webSocket: WebSocket? = null
     private var authenticated = false
     private var connecting = false
+    private var vpnStore: VpnStore? = null
+    private val vpnHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var vpnInfoFor: String? = null
+    private var vpnInfoText = ""
+    private var vpnInfoLoading = false
+    private var vpnInfoAttemptAt = 0L
+    private val vpnPermission = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) startVpn() else toast("Consenso alla VPN negato")
+    }
+    private val vpnImportPicker = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris -> importVpnConfigs(uris) }
     private var connIp = ""
     private var connToken = ""
     private val pendingCommands = mutableListOf<JSONObject>()
@@ -56,7 +72,9 @@ class SystemActivity : AppCompatActivity() {
         binding.topBar.onHelp = {
             HelpDialogs.show(
                 this, "Sistema",
-                "AVVIA PROTONVPN: apre l'app ProtonVPN sul telefono — se non e' installata, apre lo Store.\n\n" +
+                "VPN: usa le configurazioni WireGuard che scarichi dal tuo account Proton (anche gratuito): " +
+                    "IMPORTA CONFIGURAZIONI le carica, SCEGLI SERVER seleziona il paese, CONNETTI accende la VPN " +
+                    "senza aprire altre app. Le chiavi restano cifrate nel telefono.\n\n" +
                     "SVEGLIA PC (Wake-on-LAN): il PC spento non puo' avere un server in ascolto, quindi questo pulsante " +
                     "manda un pacchetto speciale direttamente sulla rete Wi-Fi di casa per riaccenderlo (funziona solo se sei " +
                     "sulla stessa rete). Gli serve l'indirizzo MAC del PC, un identificativo fisso della sua scheda di rete: " +
@@ -78,7 +96,11 @@ class SystemActivity : AppCompatActivity() {
             )
         }
 
-        binding.buttonLaunchVpn.setOnClickListener { launchProtonVpn() }
+        vpnStore = try { VpnStore(this) } catch (e: Exception) { null }
+        binding.buttonVpnToggle.setOnClickListener { toggleVpn() }
+        binding.buttonVpnChoose.setOnClickListener { chooseVpnServer() }
+        binding.buttonVpnImport.setOnClickListener { vpnImportPicker.launch(arrayOf("*/*")) }
+        refreshVpnUi()
 
         binding.buttonLaunchParsec.setOnClickListener {
             sendCommand(JSONObject().put("type", "launch_parsec"))
@@ -115,17 +137,156 @@ class SystemActivity : AppCompatActivity() {
         if (ip.isNotEmpty() && token.isNotEmpty()) connect(ip, token) else log("PC non collegato: Wake-on-LAN e connessioni restano disponibili")
     }
 
-    private fun launchProtonVpn() {
-        val launchIntent = packageManager.getLaunchIntentForPackage(PROTONVPN_PACKAGE)
-        if (launchIntent != null) {
-            startActivity(launchIntent)
-        } else {
+    // ---------- VPN integrata ----------
+
+    private fun toggleVpn() {
+        val store = vpnStore ?: return toast("Archivio VPN non disponibile su questo telefono")
+        if (VpnController.isUp(this)) {
+            binding.buttonVpnToggle.isEnabled = false
+            VpnController.disconnect(this) { error ->
+                binding.buttonVpnToggle.isEnabled = true
+                if (error != null) toast("Disconnessione non riuscita: $error")
+                refreshVpnUi()
+            }
+            return
+        }
+        if (store.names().isEmpty()) {
+            toast("Importa prima almeno una configurazione")
+            return
+        }
+        val intent = VpnController.permissionIntent(this)
+        if (intent != null) vpnPermission.launch(intent) else startVpn()
+    }
+
+    private fun startVpn() {
+        val store = vpnStore ?: return
+        val name = store.selected ?: store.names().firstOrNull() ?: return
+        val text = store.get(name) ?: return
+        store.selected = name
+        binding.buttonVpnToggle.isEnabled = false
+        binding.textVpnStatus.text = "Connessione in corso..."
+        VpnController.connect(this, name, text) { error ->
+            binding.buttonVpnToggle.isEnabled = true
+            if (error != null) toast("Connessione non riuscita: $error")
+            vpnInfoFor = null
+            vpnInfoText = ""
+            vpnInfoAttemptAt = 0L
+            refreshVpnUi()
+        }
+    }
+
+    private fun chooseVpnServer() {
+        val store = vpnStore ?: return toast("Archivio VPN non disponibile su questo telefono")
+        val names = store.names()
+        if (names.isEmpty()) {
+            toast("Importa prima almeno una configurazione")
+            return
+        }
+        val labels = names.map { (if (it == store.selected) "● " else "") + VpnStore.displayName(it) }.toTypedArray()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Scegli il server")
+            .setItems(labels) { _, index ->
+                store.selected = names[index]
+                if (VpnController.isUp(this)) {
+                    VpnController.disconnect(this) { startVpn() }
+                } else {
+                    refreshVpnUi()
+                }
+            }
+            .setNegativeButton("ANNULLA", null)
+            .show()
+    }
+
+    private fun importVpnConfigs(uris: List<Uri>) {
+        val store = vpnStore ?: return toast("Archivio VPN non disponibile su questo telefono")
+        var added = 0
+        var skipped = 0
+        for (uri in uris) {
             try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$PROTONVPN_PACKAGE")))
-            } catch (e: android.content.ActivityNotFoundException) {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$PROTONVPN_PACKAGE")))
+                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw java.io.IOException()
+                if (bytes.size > 20_000) throw java.io.IOException("file troppo grande")
+                val text = String(bytes)
+                com.wireguard.config.Config.parse(java.io.ByteArrayInputStream(bytes))
+                val fileName = contentResolver.query(uri, null, null, null, null)?.use {
+                    val col = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (col >= 0 && it.moveToFirst()) it.getString(col) else null
+                } ?: "vpn.conf"
+                store.put(VpnStore.nameFromFile(fileName), text)
+                added++
+            } catch (e: Exception) {
+                skipped++
             }
         }
+        toast("Importate $added configurazioni" + if (skipped > 0) " ($skipped non valide)" else "")
+        refreshVpnUi()
+    }
+
+    private fun refreshVpnUi() {
+        val store = vpnStore
+        val count = store?.names()?.size ?: 0
+        val up = VpnController.isUp(this)
+        val selected = store?.selected ?: store?.names()?.firstOrNull()
+        val label = selected?.let { VpnStore.displayName(it) }
+        binding.buttonVpnChoose.isEnabled = count > 0
+        binding.buttonVpnToggle.isEnabled = count > 0 || up
+        binding.buttonVpnToggle.text = if (up) "DISCONNETTI" else "CONNETTI"
+        when {
+            store == null -> {
+                binding.textVpnStatus.text = "Archivio VPN non disponibile"
+                binding.textVpnDetail.text = ""
+            }
+            count == 0 -> {
+                binding.textVpnStatus.text = "Nessuna configurazione"
+                binding.textVpnDetail.text = "Scarica i file WireGuard dal tuo account Proton e importali qui"
+            }
+            !up -> {
+                binding.textVpnStatus.text = "VPN spenta"
+                binding.textVpnDetail.text = "Server scelto: $label · $count disponibili"
+            }
+            !VpnController.handshakeDone(this) -> {
+                binding.textVpnStatus.text = "Connessione in corso..."
+                binding.textVpnDetail.text = label.orEmpty()
+            }
+            else -> {
+                val active = VpnController.activeName ?: selected
+                val (rx, tx) = VpnController.traffic(this)
+                binding.textVpnStatus.text = "VPN ATTIVA · ${VpnStore.displayName(active.orEmpty())}"
+                binding.textVpnDetail.text = listOf(vpnInfoText, "↓ ${rx / 1024} KB ↑ ${tx / 1024} KB")
+                    .filter { it.isNotEmpty() }.joinToString(" · ")
+                // l'IP pubblico si chiede finche' non risponde: nei primi istanti il tunnel
+                // puo' non essere ancora pronto, quindi un solo tentativo non basta
+                if (vpnInfoFor != active && !vpnInfoLoading &&
+                    System.currentTimeMillis() - vpnInfoAttemptAt > 8000
+                ) {
+                    vpnInfoLoading = true
+                    VpnController.publicInfo { info ->
+                        vpnInfoLoading = false
+                        vpnInfoAttemptAt = System.currentTimeMillis()
+                        if (info != null) {
+                            vpnInfoText = info
+                            vpnInfoFor = active
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private val vpnTick = object : Runnable {
+        override fun run() {
+            refreshVpnUi()
+            vpnHandler.postDelayed(this, 3000)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        vpnHandler.post(vpnTick)
+    }
+
+    override fun onPause() {
+        vpnHandler.removeCallbacks(vpnTick)
+        super.onPause()
     }
 
     private fun sendWakeOnLan(macAddress: String) {

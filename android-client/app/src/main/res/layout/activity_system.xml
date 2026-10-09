@@ -148,7 +148,7 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- vpn -->
+            <!-- vpn integrata -->
             <LinearLayout
                 style="@style/HudPanel"
                 android:layout_width="match_parent"
@@ -162,12 +162,52 @@
                     android:layout_height="wrap_content"
                     android:text="vpn su questo telefono" />
 
-                <Button
-                    android:id="@+id/buttonLaunchVpn"
+                <TextView
+                    android:id="@+id/textVpnStatus"
+                    style="@style/Text.Hud.Value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="VPN spenta" />
+
+                <TextView
+                    android:id="@+id/textVpnDetail"
+                    style="@style/Text.Hud.Status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textAllCaps="false" />
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:text="AVVIA PROTONVPN" />
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/buttonVpnToggle"
+                        style="@style/Widget.Hud.Button.Accent"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:text="CONNETTI" />
+
+                    <Button
+                        android:id="@+id/buttonVpnChoose"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:text="SCEGLI SERVER" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/buttonVpnImport"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="IMPORTA CONFIGURAZIONI" />
             </LinearLayout>
 
             <!-- parsec e protonvpn sul pc -->
