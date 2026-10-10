@@ -385,7 +385,26 @@ async function toggleTvShare() {
     tvSetStatus2(result.ok ? "Condivisione avviata: apri Smart Share sulla TV per sfogliarla." : `Errore: ${result.error}`);
 }
 
+// ---------- ultime cartelle ricordate (si salvano sul PC) ----------
+const lastSavedPaths = { tv_folder: null, ftp_folder: null };
+
+function rememberPath(key, value) {
+    if (lastSavedPaths[key] === value) return;
+    lastSavedPaths[key] = value;
+    runAction("paths_set", { key, value });
+}
+
+// ripristino all'avvio: prima che l'utente apra le schede
+runAction("paths_get").then(r => {
+    if (!r || !r.ok) return;
+    if (r.tv_folder && !tvLocalPath) tvLocalPath = r.tv_folder;
+    if (r.ftp_folder && !fzLocalPath) fzLocalPath = r.ftp_folder;
+    lastSavedPaths.tv_folder = r.tv_folder || "";
+    lastSavedPaths.ftp_folder = r.ftp_folder || "";
+});
+
 async function tvLoadLocal() {
+    rememberPath("tv_folder", tvLocalPath);
     document.getElementById("tvLocalPath").textContent = tvLocalPath || "unità disco";
     document.getElementById("tvLocalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--text-dim);">caricamento...</div>`;
     try {
@@ -618,6 +637,7 @@ async function fzOnShareSelected() {
 }
 
 async function fzLoadLocal() {
+    rememberPath("ftp_folder", fzLocalPath);
     document.getElementById("fzLocalPath").textContent = fzLocalPath || "unità disco";
     document.getElementById("fzLocalEntries").innerHTML = `<div class="hud-mono" style="font-size:12px; color:var(--text-dim);">caricamento...</div>`;
     try {

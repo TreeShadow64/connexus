@@ -53,3 +53,6 @@ connexus.log*
 # Configurazioni VPN (WireGuard): contengono chiavi private, mai da committare
 *.conf
 /vpn-config/
+
+# Ultime cartelle scelte nella dashboard
+ui_state.json

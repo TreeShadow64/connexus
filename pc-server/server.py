@@ -28,6 +28,7 @@ from core import auth
 from core import dashboard_server
 from core import external_apps
 from core import pairing
+from core import ui_state
 from casting import dlna_cast
 from casting import dlna_server
 from files import file_browser
@@ -1488,6 +1489,10 @@ def handle_dashboard_action(action, payload):
         return stop_tv_share()
     if action in ("launch_parsec", "launch_vpn", "apps_get", "apps_set"):
         return handle_external_apps(action, payload)
+    if action == "paths_get":
+        return {"ok": True, **ui_state.get_paths()}
+    if action == "paths_set":
+        return {"ok": ui_state.set_path(payload.get("key"), payload.get("value"))}
     if action == "pair_qr":
         # il token viaggia solo nella risposta a questa richiesta locale (POST dalla
         # dashboard sul PC); non viene scritto nei log
