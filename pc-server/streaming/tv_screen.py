@@ -18,7 +18,8 @@ log = logging.getLogger("hub-server")
 # meno ritardo. "fluido" e' il predefinito, "nitido" e' per immagini ferme.
 PROFILES = {
     # video H.264 decodificato dal chip della TV (consigliato); JPEG a 1280 px come ripiego
-    "video": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1920, 30, 26)},
+    "video": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1920, 30, 26), "audio": True},
+    "videosolo": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1920, 30, 26)},
     "video720": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1280, 30, 26)},
     "video24": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1280, 24, 26)},
     "fluido": {"fps": 15, "quality": 60, "max_width": 1280},
@@ -67,8 +68,11 @@ def _codec_from_moov(moov):
     """Stringa codec 'avc1.PPCCLL' presa dal box avcC (profilo, vincoli, livello)."""
     i = moov.find(b"avcC")
     if i < 0 or len(moov) < i + 8:
-        return "avc1.42C028"
-    return "avc1.%02X%02X%02X" % (moov[i + 5], moov[i + 6], moov[i + 7])
+        video = "avc1.42C028"
+    else:
+        video = "avc1.%02X%02X%02X" % (moov[i + 5], moov[i + 6], moov[i + 7])
+    # traccia audio AAC-LC nello stesso MP4: lo dice il box esds
+    return video + (",mp4a.40.2" if moov.find(b"esds") >= 0 else "")
 
 
 class TvScreen:
@@ -139,7 +143,7 @@ class TvScreen:
             cfg = PROFILES[profile]
             streamer = ScreenStreamer(target_fps=cfg["fps"], jpeg_quality=cfg["quality"],
                                       max_width=cfg["max_width"], virtual=True,
-                                      h264=cfg.get("h264"))
+                                      h264=cfg.get("h264"), audio=bool(cfg.get("audio")))
             self._video_init = None
             self.codec = None
             self._assembler = Fmp4Assembler(self._on_video_init, self._on_video_fragment) \
@@ -281,7 +285,7 @@ img.native{margin:auto;width:auto;height:auto;max-width:100%;max-height:100%}
 #aud button{font:22px sans-serif;padding:10px 20px;color:#000;background:#6fe3ff;border:0}
 #delay{bottom:16px;color:#fff;background:rgba(0,0,0,.6);width:max-content;margin:auto;padding:6px 14px}
 </style></head><body>
-<video id="v" autoplay muted playsinline></video>
+<video id="v" autoplay playsinline></video>
 <img id="s" alt="" style="display:none">
 <div id="msg" class="note">Connexus: in attesa del secondo schermo...</div>
 <div id="aud" class="note"><button id="audbtn">Premi OK per attivare l'audio</button></div>
@@ -306,6 +310,8 @@ function pullDirect(){
 
 /* video H.264 con Media Source: il chip della TV lo decodifica */
 var RATECTL = location.search.indexOf("r=1") >= 0, trimmed = false, TRIM = location.search.indexOf("trim=1") >= 0;
+var EMBEDDED_AUDIO = false;
+function stopWebAudio(){ NOAUDIO = true; }
 var usedFallback = false, seeks = 0, waits = 0, lastT = 0, lastTotal = 0, lastDrop = 0, tick = 0;
 function fallback(why){
   if (usedFallback) return;
@@ -315,6 +321,9 @@ function startMse(){
   if (!window.MediaSource || !window.fetch) return fallback("MediaSource/fetch non disponibili");
   fetch("/tvvideo.info?k=" + KEY).then(function(r){ return r.json(); }).then(function(info){
     var mime = 'video/mp4; codecs="' + info.codec + '"';
+    EMBEDDED_AUDIO = info.codec.indexOf("mp4a") >= 0;
+    if (EMBEDDED_AUDIO) { video.muted = false; video.volume = 1; stopWebAudio(); }
+    tvlog("audio nel flusso: " + EMBEDDED_AUDIO);
     var ok = MediaSource.isTypeSupported(mime);
     tvlog("supporto " + mime + " = " + ok);
     if (!ok) return fallback("codec non supportato");
@@ -334,7 +343,7 @@ function startMse(){
         try {
           var b = video.buffered;
           if (b.length && !sb.updating && video.currentTime - b.start(0) > 8) sb.remove(b.start(0), video.currentTime - 4);
-          if (video.paused) video.play();
+          if (video.paused) { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){ video.muted = true; EMBEDDED_AUDIO = false; NOAUDIO = false; tvlog("audio del video bloccato: uso il canale audio separato"); video.play(); }); }
         } catch (e) {}
       });
       fetch("/tvvideo.mp4?k=" + KEY).then(function(res){
@@ -438,8 +447,9 @@ document.addEventListener("click", unlock); document.addEventListener("keydown",
   }
 });
 var NOAUDIO = location.search.indexOf("a=0") >= 0;
-if (!NOAUDIO) {
-  setTimeout(startAudio, 300);
+setTimeout(function(){
+  if (NOAUDIO) return;
+  startAudio();
   setInterval(function(){ if (ctx && ctx.state === "suspended") aud.style.display = "block"; }, 2000);
-}
+}, 2500);
 </script></body></html>"""

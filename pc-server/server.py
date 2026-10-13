@@ -869,7 +869,7 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
             if init is None:
                 self.send_error(503, "Video non disponibile")
                 return
-            body = json.dumps({"codec": screen.codec}).encode()
+            body = json.dumps({"codec": screen.codec, "audio": "mp4a" in (screen.codec or "")}).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))

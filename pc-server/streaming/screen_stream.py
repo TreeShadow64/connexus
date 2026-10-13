@@ -35,8 +35,9 @@ MSG_VIDEO = 3
 class ScreenStreamer:
     """Supervisiona il processo figlio che possiede monitor virtuale e cattura."""
 
-    def __init__(self, target_fps=20, jpeg_quality=85, max_width=1920, virtual=False, h264=None):
+    def __init__(self, target_fps=20, jpeg_quality=85, max_width=1920, virtual=False, h264=None, audio=False):
         self.virtual = virtual
+        self.audio = audio
         self.h264 = h264          # (larghezza, fps, crf) oppure None
         self._on_video = None
         self.target_fps = target_fps
@@ -68,6 +69,8 @@ class ScreenStreamer:
         extra = ["virtual"] if self.virtual else []
         if self.h264 is not None:
             extra.append("h264=%d,%d,%d" % tuple(self.h264))
+            if self.audio:
+                extra.append("audio=1")
         if getattr(sys, "frozen", False):
             args = [sys.executable, "--capture-process", str(self.target_fps),
                      str(self.jpeg_quality), str(self.max_width)] + extra

@@ -198,7 +198,8 @@ def main():
 
     h264 = _parse_h264_option(sys.argv[4:])
     if h264 is not None:
-        return _run_h264(camera, geometry, h264, target_fps, jpeg_quality, max_width, manager)
+        return _run_h264(camera, geometry, h264, target_fps, jpeg_quality, max_width, manager,
+                         with_audio="audio=1" in sys.argv[4:])
 
     camera.start(target_fps=target_fps, video_mode=True)
 
@@ -268,7 +269,117 @@ def main():
     return 0
 
 
-def _run_h264(camera, geometry, h264, jpeg_fps, jpeg_quality, jpeg_width, manager):
+class _AudioMux:
+    """Cattura l'audio di sistema (loopback WASAPI), lo porta a 48 kHz stereo e lo
+    codifica in AAC dentro lo stesso MP4 del video, con la stessa base dei tempi:
+    cosi' la TV li riproduce sempre sincronizzati. Quando non suona nulla WASAPI non
+    produce dati: il silenzio viene riempito per mantenere la linea del tempo."""
+
+    RATE = 48000
+
+    def __init__(self, av, container, lock, t0):
+        import queue
+        import threading
+        from fractions import Fraction
+
+        self.av, self.container, self.lock, self.t0 = av, container, lock, t0
+        self.stream = container.add_stream("aac", rate=self.RATE, layout="stereo")
+        self.stream.time_base = Fraction(1, self.RATE)
+        self.q = queue.Queue(maxsize=400)
+        self.written = 0
+        self.stop_event = threading.Event()
+        self.resampler = None
+        self.src_rate = 0
+        self._pa = None
+        self._stream = None
+        self._thread = threading.Thread(target=self._worker, daemon=True)
+
+    def start(self):
+        import pyaudiowpatch as pyaudio
+
+        pa = pyaudio.PyAudio()
+        wasapi = pa.get_host_api_info_by_type(pyaudio.paWASAPI)
+        spk = pa.get_device_info_by_index(wasapi["defaultOutputDevice"])
+        dev = next(d for d in pa.get_loopback_device_info_generator() if spk["name"] in d["name"])
+        self.channels = int(dev["maxInputChannels"])
+        self.src_rate = int(dev["defaultSampleRate"])
+        self.resampler = self.av.AudioResampler(format="fltp", layout="stereo", rate=self.RATE)
+
+        def on_audio(data, frames, t, status):
+            try:
+                self.q.put_nowait((time.time(), data))
+            except Exception:
+                pass
+            return (None, pyaudio.paContinue)
+
+        self._stream = pa.open(format=pyaudio.paInt16, channels=self.channels, rate=self.src_rate,
+                               input=True, input_device_index=dev["index"],
+                               frames_per_buffer=1024, stream_callback=on_audio)
+        self._pa = pa
+        self._thread.start()
+        log(f"audio AAC nel flusso: {dev['name']} {self.src_rate} Hz")
+
+    def stop(self):
+        self.stop_event.set()
+        try:
+            if self._stream is not None:
+                self._stream.stop_stream()
+                self._stream.close()
+            if self._pa is not None:
+                self._pa.terminate()
+        except Exception:
+            pass
+
+    def _emit(self, frames):
+        from fractions import Fraction
+        for f in frames:
+            f.pts = self.written
+            f.time_base = Fraction(1, self.RATE)
+            self.written += f.samples
+            with self.lock:
+                for packet in self.stream.encode(f):
+                    self.container.mux(packet)
+
+    def _worker(self):
+        import queue
+        import numpy as np
+        try:
+            while not self.stop_event.is_set():
+                try:
+                    ts, data = self.q.get(timeout=0.1)
+                except queue.Empty:
+                    # nulla in riproduzione: tieni la linea del tempo con silenzio
+                    expected = int((time.time() - self.t0) * self.RATE)
+                    if expected - self.written > self.RATE // 10:
+                        self._silence_48k(expected - self.written - self.RATE // 20)
+                    continue
+                arr = np.frombuffer(data, dtype=np.int16)
+                if self.channels != 2:
+                    arr = arr.reshape(-1, self.channels)[:, :2].reshape(-1)
+                n = len(arr) // 2
+                start = int((ts - self.t0) * self.RATE) - int(n * self.RATE / self.src_rate)
+                if start - self.written > self.RATE // 20:      # buco: riempi col silenzio
+                    self._silence_48k(start - self.written)
+                frame = self.av.AudioFrame.from_ndarray(arr.reshape(1, -1), format="s16", layout="stereo")
+                frame.sample_rate = self.src_rate
+                self._emit(self.resampler.resample(frame))
+        except Exception as e:
+            log(f"ERRORE audio: {type(e).__name__}: {e}")
+
+    def _silence_48k(self, samples):
+        """Silenzio gia' nel formato di uscita (48 kHz, float planare): non passa
+        dal ricampionatore, che e' configurato sul formato della scheda audio."""
+        import numpy as np
+        while samples > 0:
+            n = min(samples, 4800)
+            frame = self.av.AudioFrame.from_ndarray(
+                np.zeros((2, n), dtype=np.float32), format="fltp", layout="stereo")
+            frame.sample_rate = self.RATE
+            self._emit([frame])
+            samples -= n
+
+
+def _run_h264(camera, geometry, h264, jpeg_fps, jpeg_quality, jpeg_width, manager, with_audio=False):
     """Ciclo di cattura con video H.264 (per la TV) e, in parallelo, JPEG a bassa
     frequenza come ripiego per i browser che non sanno riprodurre il video."""
     import av
@@ -279,12 +390,22 @@ def _run_h264(camera, geometry, h264, jpeg_fps, jpeg_quality, jpeg_width, manage
     container, stream, out_w, out_h = _open_h264(av, geometry, width_limit, fps, crf)
     log(f"video H.264 {out_w}x{out_h} a {fps} fps (crf {crf})")
 
+    import threading
+    mux_lock = threading.Lock()
     camera.start(target_fps=fps, video_mode=True)
     scale = out_w / geometry["width"]
     jpeg_interval = 1.0 / max(1, jpeg_fps)
     last_jpeg = 0.0
     last_pts = -1
     t0 = time.time()
+    audio = None
+    if with_audio:
+        try:
+            audio = _AudioMux(av, container, mux_lock, t0)
+            audio.start()
+        except Exception as e:
+            log(f"audio non disponibile ({type(e).__name__}: {e}): video senza suono nel flusso")
+            audio = None
 
     try:
         while True:
@@ -318,11 +439,14 @@ def _run_h264(camera, geometry, h264, jpeg_fps, jpeg_quality, jpeg_width, manage
             av_frame = av.VideoFrame.from_ndarray(frame, format="bgr24")
             av_frame = av_frame.reformat(format="yuv420p")
             av_frame.pts = pts
-            for packet in stream.encode(av_frame):
-                container.mux(packet)
+            with mux_lock:
+                for packet in stream.encode(av_frame):
+                    container.mux(packet)
     except (BrokenPipeError, OSError):
         pass
     finally:
+        if audio is not None:
+            audio.stop()
         if manager is not None:
             try:
                 manager.close()
