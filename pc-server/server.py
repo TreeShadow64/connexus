@@ -826,18 +826,29 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
             self.send_error(403, "Secondo schermo non attivo o chiave non valida")
             return
         if parsed.path == "/tvframe.jpg":
-            after = parse_qs(parsed.query).get("s", ["-1"])[0]
+            query_args = parse_qs(parsed.query)
+            direct = "d" in query_args          # <img> diretta: il numero lo ricorda il server
+            client = self.client_address[0]
+            after = query_args.get("s", ["-1"])[0]
             try:
                 after = int(after)
             except ValueError:
                 after = -1
+            if direct:
+                after = screen.last_served.get(client, -1)
             seq, jpeg = screen.next_frame(after)
+            if direct:
+                if jpeg is None:
+                    seq, jpeg = screen.next_frame(-1)     # niente di nuovo: rimanda l'ultimo
+                if jpeg is not None:
+                    screen.last_served[client] = seq
             if jpeg is None:
                 self.send_response(204)
                 self.send_header("X-Seq", str(seq))
                 self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 return
+            screen.note_request(self.client_address[0], len(jpeg))
             self.send_response(200)
             self.send_header("Content-Type", "image/jpeg")
             self.send_header("Content-Length", str(len(jpeg)))

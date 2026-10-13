@@ -19,6 +19,7 @@ log = logging.getLogger("hub-server")
 PROFILES = {
     "fluido": {"fps": 15, "quality": 60, "max_width": 1280},
     "nitido": {"fps": 12, "quality": 75, "max_width": 1920},
+    "leggero": {"fps": 12, "quality": 55, "max_width": 960},
 }
 DEFAULT_PROFILE = "fluido"
 
@@ -33,6 +34,9 @@ class TvScreen:
         self._viewers = 0
         self._key = None
         self._profile = DEFAULT_PROFILE
+        self._client_stats = {}
+        self.last_client_fps = 0.0
+        self.last_served = {}
 
     # --- stato ---
 
@@ -117,6 +121,22 @@ class TvScreen:
                 return after, None
             return self._seq, self._latest
 
+    def note_request(self, ip, nbytes):
+        """Statistiche per client: ogni 5 secondi scrive nel log quanti
+        fotogrammi al secondo la TV chiede e riesce quindi a mostrare."""
+        import time
+        now = time.time()
+        with self._cond:
+            st = self._client_stats.setdefault(ip, {"t": now, "n": 0, "b": 0})
+            st["n"] += 1
+            st["b"] += nbytes
+            if now - st["t"] >= 5:
+                fps = st["n"] / (now - st["t"])
+                kb = st["b"] / max(1, st["n"]) / 1024
+                self.last_client_fps = round(fps, 1)
+                log.info(f"TV {ip}: {fps:.1f} fotogrammi/s mostrati, {kb:.0f} KB l'uno")
+                st["t"], st["n"], st["b"] = now, 0, 0
+
     # --- flusso per i visualizzatori ---
 
     def frames(self):
@@ -149,6 +169,7 @@ VIEWER_PAGE = """<!doctype html>
 <style>
 html,body{margin:0;height:100%;background:#000;overflow:hidden}
 img{position:fixed;inset:0;width:100%;height:100%;object-fit:contain}
+img.native{margin:auto;width:auto;height:auto;max-width:100%;max-height:100%}
 .note{position:fixed;left:0;right:0;text-align:center;color:#6fe3ff;font:22px sans-serif;display:none}
 #msg{top:45%}
 #aud{top:16px}
@@ -191,26 +212,39 @@ function pull(){
   x.send();
 }
 setInterval(function(){
-  fpsTxt = frames + " fps  " + lat + " ms  " + Math.round(bytes / 1024 / Math.max(1, frames)) + " KB";
+  fpsTxt = frames + " fps" + (bytes ? "  " + lat + " ms  " + Math.round(bytes / 1024 / Math.max(1, frames)) + " KB" : "");
   frames = 0; bytes = 0;
   if (dbg){ delayBox.textContent = fpsTxt; delayBox.style.display = "block"; }
 }, 1000);
-pull();
+var MODE = (location.search.match(/[?&]m=([0-9])/) || [0, "2"])[1];
+function pullDirect(){
+  img.onload = function(){ frames++; msg.style.display = "none"; pullDirect(); };
+  img.onerror = function(){ msg.style.display = "block"; setTimeout(pullDirect, 1000); };
+  img.src = "/tvframe.jpg?k=" + KEY + "&d=1&t=" + Date.now();
+}
+if (MODE === "3") img.className = "native";
+if (MODE === "1") pull(); else pullDirect();
 
 /* ---- audio (Web Audio: PCM 16 bit stereo dal PC) ---- */
 var ctx = null, nextTime = 0, delay = 0.35, carry = null;
 function resetClock(){ nextTime = ctx.currentTime + 0.08 + delay; }
+var pend = [], pendLen = 0, BLOCK = Math.round(RATE * 0.09) * 4;   /* blocchi da ~90 ms: meno lavoro per la TV */
 function playChunk(bytes){
   if (carry && carry.length){ var m = new Uint8Array(carry.length + bytes.length); m.set(carry, 0); m.set(bytes, carry.length); bytes = m; carry = null; }
-  var frames = Math.floor(bytes.length / 4), use = frames * 4;
-  if (use < bytes.length) carry = bytes.subarray(use);
+  pend.push(bytes); pendLen += bytes.length;
+  if (pendLen < BLOCK) return;
+  var all = new Uint8Array(pendLen), o = 0;
+  for (var j = 0; j < pend.length; j++){ all.set(pend[j], o); o += pend[j].length; }
+  pend = []; pendLen = 0;
+  var frames = Math.floor(all.length / 4), use = frames * 4;
+  if (use < all.length) carry = all.subarray(use);
   if (!frames) return;
+  var i16 = new Int16Array(all.buffer, 0, use / 2);
   var ab = ctx.createBuffer(2, frames, RATE), L = ab.getChannelData(0), R = ab.getChannelData(1);
-  var dv = new DataView(bytes.buffer, bytes.byteOffset, use);
-  for (var i = 0; i < frames; i++){ L[i] = dv.getInt16(i * 4, true) / 32768; R[i] = dv.getInt16(i * 4 + 2, true) / 32768; }
+  for (var i = 0, k = 0; i < frames; i++, k += 2){ L[i] = i16[k] / 32768; R[i] = i16[k + 1] / 32768; }
   var src = ctx.createBufferSource(); src.buffer = ab; src.connect(ctx.destination);
   var floor = ctx.currentTime + 0.05 + delay;
-  if (nextTime < floor || nextTime > floor + 0.7) nextTime = floor;   // dopo una pausa o un accumulo si riallinea
+  if (nextTime < floor || nextTime > floor + 0.7) nextTime = floor;   /* dopo una pausa o un accumulo si riallinea */
   src.start(nextTime); nextTime += ab.duration;
 }
 function pump(reader){
@@ -241,6 +275,9 @@ document.addEventListener("click", unlock); document.addEventListener("keydown",
     clearTimeout(delayBox._t); delayBox._t = setTimeout(function(){ delayBox.style.display = "none"; }, 2500);
   }
 });
-setTimeout(startAudio, 300);
-setInterval(function(){ if (ctx && ctx.state === "suspended") aud.style.display = "block"; }, 2000);
+var NOAUDIO = location.search.indexOf("a=0") >= 0;
+if (!NOAUDIO) {
+  setTimeout(startAudio, 300);
+  setInterval(function(){ if (ctx && ctx.state === "suspended") aud.style.display = "block"; }, 2000);
+}
 </script></body></html>"""
