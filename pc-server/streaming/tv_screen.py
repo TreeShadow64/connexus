@@ -290,6 +290,8 @@ img.native{margin:auto;width:auto;height:auto;max-width:100%;max-height:100%}
 <div id="msg" class="note">Connexus: in attesa del secondo schermo...</div>
 <div id="aud" class="note"><button id="audbtn">Premi OK per attivare l'audio</button></div>
 <div id="delay" class="note"></div>
+<div id="hint" class="note" style="bottom:60px;display:block;color:#fff;background:rgba(0,0,0,.55);width:max-content;margin:auto;padding:6px 14px">Premi OK sul telecomando per lo schermo intero</div>
+<script>setTimeout(function(){ var h = document.getElementById("hint"); if (h) h.style.display = "none"; }, 8000);</script>
 <script>
 var KEY = "__KEY__", RATE = __RATE__;
 var img = document.getElementById("s"), msg = document.getElementById("msg");
@@ -433,7 +435,14 @@ function startAudio(){
       .catch(function(){ setTimeout(startAudio, 3000); });
   } catch (e) { /* senza audio il video funziona lo stesso */ }
 }
-function unlock(){ if (ctx && ctx.state === "suspended") ctx.resume(); aud.style.display = "none"; }
+function goFull(){
+  var e = document.documentElement;
+  var f = e.requestFullscreen || e.webkitRequestFullscreen || e.webkitRequestFullScreen || e.mozRequestFullScreen;
+  var on = document.fullscreenElement || document.webkitFullscreenElement;
+  if (on) return;
+  try { if (f) f.call(e); } catch (x) {}
+}
+function unlock(){ if (ctx && ctx.state === "suspended") ctx.resume(); aud.style.display = "none"; goFull(); }
 document.addEventListener("click", unlock); document.addEventListener("keydown", function(e){
   unlock();
   var k = e.keyCode;   /* 38 su: diagnostica; 37 sinistra, 39 destra: ritardo audio */
