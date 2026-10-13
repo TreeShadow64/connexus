@@ -12,3 +12,4 @@ pywebview>=5.0
 cryptography>=42.0.0
 segno
 PyAudioWPatch
+av>=12.0

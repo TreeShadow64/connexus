@@ -29,13 +29,16 @@ mouse = MouseController()
 
 MSG_GEOMETRY = 1
 MSG_FRAME = 2
+MSG_VIDEO = 3
 
 
 class ScreenStreamer:
     """Supervisiona il processo figlio che possiede monitor virtuale e cattura."""
 
-    def __init__(self, target_fps=20, jpeg_quality=85, max_width=1920, virtual=False):
+    def __init__(self, target_fps=20, jpeg_quality=85, max_width=1920, virtual=False, h264=None):
         self.virtual = virtual
+        self.h264 = h264          # (larghezza, fps, crf) oppure None
+        self._on_video = None
         self.target_fps = target_fps
         self.jpeg_quality = jpeg_quality
         self.max_width = max_width
@@ -50,9 +53,11 @@ class ScreenStreamer:
     def geometry(self):
         return self._geometry
 
-    def start(self, on_frame):
-        """Avvia il processo di cattura. on_frame(bytes) riceve i fotogrammi JPEG."""
+    def start(self, on_frame, on_video=None):
+        """Avvia il processo di cattura. on_frame(bytes) riceve i fotogrammi JPEG,
+        on_video(bytes) i pezzi del flusso MP4 H.264 (se attivo)."""
         self._on_frame = on_frame
+        self._on_video = on_video
         self._geometry = None
         self._geometry_ready.clear()
 
@@ -61,6 +66,8 @@ class ScreenStreamer:
         # dedicato che desktop_app.py intercetta prima di avviare il resto
         # dell'app (stesso bundle, stessi moduli gia' inclusi).
         extra = ["virtual"] if self.virtual else []
+        if self.h264 is not None:
+            extra.append("h264=%d,%d,%d" % tuple(self.h264))
         if getattr(sys, "frozen", False):
             args = [sys.executable, "--capture-process", str(self.target_fps),
                      str(self.jpeg_quality), str(self.max_width)] + extra
@@ -109,6 +116,8 @@ class ScreenStreamer:
                 self._geometry_ready.set()
             elif kind == MSG_FRAME and self._on_frame is not None:
                 self._on_frame(payload)
+            elif kind == MSG_VIDEO and self._on_video is not None:
+                self._on_video(payload)
 
     def _read_loop(self):
         try:

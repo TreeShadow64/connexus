@@ -779,10 +779,43 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/fs/download"):
             self._serve_download()
             return
-        if self.path.startswith(("/tvscreen", "/tvaudio", "/tvframe")):
+        if self.path.startswith(("/tvscreen", "/tvaudio", "/tvframe", "/tvvideo", "/tvlog")):
             self._serve_tv_screen()
             return
         super().do_GET()
+
+    def _serve_tv_video(self):
+        """Flusso MP4 frammentato H.264 per Media Source: segmento iniziale, poi
+        i frammenti man mano che nascono (partendo dal successivo al collegamento)."""
+        screen = tv_screen_module.tv_screen
+        init = screen.wait_video_init(timeout=10)
+        if init is None:
+            self.send_error(503, "Video non disponibile")
+            return
+        q = screen.video_subscribe()
+        self.send_response(200)
+        self.send_header("Content-Type", "video/mp4")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        try:
+            self.connection.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 262144)
+        except OSError:
+            pass
+        try:
+            self.wfile.write(init)
+            self.wfile.flush()
+            while screen.active:
+                try:
+                    fragment = q.get(timeout=2.0)
+                except Exception:
+                    continue
+                self.wfile.write(fragment)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            screen.video_unsubscribe(q)
 
     def _serve_tv_audio(self):
         """Audio di sistema del PC come PCM 16 bit stereo, per la pagina della TV."""
@@ -824,6 +857,28 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
         screen = tv_screen_module.tv_screen
         if not screen.check_key(key):
             self.send_error(403, "Secondo schermo non attivo o chiave non valida")
+            return
+        if parsed.path == "/tvlog":
+            text = (parse_qs(parsed.query).get("m", [""])[0] or "")[:200]
+            log.info(f"Pagina TV {self.client_address[0]}: {text}")
+            self.send_response(204)
+            self.end_headers()
+            return
+        if parsed.path == "/tvvideo.info":
+            init = screen.wait_video_init(timeout=10)
+            if init is None:
+                self.send_error(503, "Video non disponibile")
+                return
+            body = json.dumps({"codec": screen.codec}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if parsed.path == "/tvvideo.mp4":
+            self._serve_tv_video()
             return
         if parsed.path == "/tvframe.jpg":
             query_args = parse_qs(parsed.query)

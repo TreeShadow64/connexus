@@ -19,6 +19,7 @@ from ctypes import wintypes
 
 MSG_GEOMETRY = 1
 MSG_FRAME = 2
+MSG_VIDEO = 3      # byte del flusso MP4 frammentato (H.264)
 
 KEEPALIVE_S = 1.0
 
@@ -95,6 +96,64 @@ def _open_virtual_monitor(virtual_display):
     return existing, manager
 
 
+class _VideoSink:
+    """File virtuale su cui il muxer MP4 scrive: ogni pezzo parte subito verso il
+    processo principale. Non e' ricercabile: serve l'MP4 frammentato."""
+
+    def __init__(self):
+        self.position = 0
+
+    def write(self, data):
+        data = bytes(data)
+        write_message(MSG_VIDEO, data)
+        self.position += len(data)
+        return len(data)
+
+    def flush(self):
+        pass
+
+    def seekable(self):
+        return False
+
+    def tell(self):
+        return self.position
+
+
+def _parse_h264_option(args):
+    """'h264=1920,30,26' -> (larghezza, fps, crf)."""
+    for token in args:
+        if token.startswith("h264="):
+            width, fps, crf = (int(v) for v in token[5:].split(","))
+            return width, fps, crf
+    return None
+
+
+def _open_h264(av, geometry, width_limit, fps, crf):
+    """Codificatore H.264 + muxer MP4 frammentato. Ritorna (container, stream, w, h)."""
+    from fractions import Fraction
+
+    src_w, src_h = geometry["width"], geometry["height"]
+    out_w = min(src_w, width_limit)
+    out_h = int(src_h * out_w / src_w)
+    out_w -= out_w % 2
+    out_h -= out_h % 2
+    gop = max(2, fps // 5)          # un fotogramma chiave ogni ~200 ms: frammenti brevi, bassa latenza
+
+    container = av.open(
+        _VideoSink(), mode="w", format="mp4",
+        options={"movflags": "empty_moov+default_base_moof+frag_keyframe"},
+    )
+    options = {
+        "preset": "ultrafast", "tune": "zerolatency", "profile": "baseline",
+        "crf": str(crf), "maxrate": "12M", "bufsize": "4M",
+        "x264-params": f"keyint={gop}:min-keyint={gop}:scenecut=0:bframes=0",
+    }
+    stream = container.add_stream("libx264", rate=Fraction(fps, 1), options=options)
+    stream.width, stream.height = out_w, out_h
+    stream.pix_fmt = "yuv420p"
+    return container, stream, out_w, out_h
+
+
 def main():
     target_fps = int(sys.argv[1])
     jpeg_quality = int(sys.argv[2])
@@ -136,6 +195,10 @@ def main():
 
     write_message(MSG_GEOMETRY, json.dumps(geometry).encode("utf-8"))
     log(f"cattura del monitor {'virtuale' if virtual else 'principale'} avviata su {geometry['device_name']}")
+
+    h264 = _parse_h264_option(sys.argv[4:])
+    if h264 is not None:
+        return _run_h264(camera, geometry, h264, target_fps, jpeg_quality, max_width, manager)
 
     camera.start(target_fps=target_fps, video_mode=True)
 
@@ -196,6 +259,69 @@ def main():
             write_message(MSG_FRAME, last_encoded)
     except (BrokenPipeError, OSError):
         pass  # il server ha chiuso la pipe: e' il segnale di terminare
+    finally:
+        if manager is not None:
+            try:
+                manager.close()
+            except Exception:
+                pass
+    return 0
+
+
+def _run_h264(camera, geometry, h264, jpeg_fps, jpeg_quality, jpeg_width, manager):
+    """Ciclo di cattura con video H.264 (per la TV) e, in parallelo, JPEG a bassa
+    frequenza come ripiego per i browser che non sanno riprodurre il video."""
+    import av
+    import cv2
+    import numpy as np
+
+    width_limit, fps, crf = h264
+    container, stream, out_w, out_h = _open_h264(av, geometry, width_limit, fps, crf)
+    log(f"video H.264 {out_w}x{out_h} a {fps} fps (crf {crf})")
+
+    camera.start(target_fps=fps, video_mode=True)
+    scale = out_w / geometry["width"]
+    jpeg_interval = 1.0 / max(1, jpeg_fps)
+    last_jpeg = 0.0
+    last_pts = -1
+    t0 = time.time()
+
+    try:
+        while True:
+            frame = camera.get_latest_frame()
+            if frame is None:
+                continue
+            now = time.time()
+            if frame.shape[1] != out_w or frame.shape[0] != out_h:
+                frame = cv2.resize(frame, (out_w, out_h), interpolation=cv2.INTER_AREA)
+            else:
+                frame = frame.copy()
+
+            cursor = get_cursor_on_display(geometry)
+            if cursor is not None:
+                draw_cursor(frame, cursor, scale, cv2, np)
+
+            if now - last_jpeg >= jpeg_interval:
+                last_jpeg = now
+                small = frame
+                if out_w > jpeg_width:
+                    small = cv2.resize(frame, (jpeg_width, int(out_h * jpeg_width / out_w)),
+                                       interpolation=cv2.INTER_AREA)
+                ok, encoded = cv2.imencode(".jpg", small, [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality])
+                if ok:
+                    write_message(MSG_FRAME, encoded.tobytes())
+
+            pts = int((now - t0) * fps)
+            if pts <= last_pts:
+                continue                         # stesso istante: un solo fotogramma per tick
+            last_pts = pts
+            av_frame = av.VideoFrame.from_ndarray(frame, format="bgr24")
+            av_frame = av_frame.reformat(format="yuv420p")
+            av_frame.pts = pts
+            for packet in stream.encode(av_frame):
+                container.mux(packet)
+    except (BrokenPipeError, OSError):
+        pass
     finally:
         if manager is not None:
             try:

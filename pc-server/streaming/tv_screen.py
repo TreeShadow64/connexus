@@ -17,11 +17,56 @@ log = logging.getLogger("hub-server")
 # La TV decodifica ogni fotogramma con la sua CPU, che e' lenta: meno pixel =
 # meno ritardo. "fluido" e' il predefinito, "nitido" e' per immagini ferme.
 PROFILES = {
+    # video H.264 decodificato dal chip della TV (consigliato); JPEG a 1280 px come ripiego
+    "video": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1920, 30, 26)},
     "fluido": {"fps": 15, "quality": 60, "max_width": 1280},
     "nitido": {"fps": 12, "quality": 75, "max_width": 1920},
     "leggero": {"fps": 12, "quality": 55, "max_width": 960},
 }
-DEFAULT_PROFILE = "fluido"
+DEFAULT_PROFILE = "video"
+
+
+class Fmp4Assembler:
+    """Ricompone il flusso MP4 frammentato in: segmento iniziale (ftyp+moov) e
+    frammenti (moof+mdat). Ogni frammento comincia con un fotogramma chiave, quindi
+    chi si collega a meta' puo' partire dal frammento successivo."""
+
+    def __init__(self, on_init, on_fragment):
+        self._buf = bytearray()
+        self._on_init = on_init
+        self._on_fragment = on_fragment
+        self._ftyp = None
+        self._moof = None
+
+    def feed(self, data):
+        self._buf += data
+        while len(self._buf) >= 8:
+            size = int.from_bytes(self._buf[0:4], "big")
+            kind = bytes(self._buf[4:8])
+            if size < 8:
+                self._buf.clear()          # flusso incoerente: si riparte
+                return
+            if len(self._buf) < size:
+                return
+            box = bytes(self._buf[:size])
+            del self._buf[:size]
+            if kind == b"ftyp":
+                self._ftyp = box
+            elif kind == b"moov" and self._ftyp is not None:
+                self._on_init(self._ftyp + box, _codec_from_moov(box))
+            elif kind == b"moof":
+                self._moof = box
+            elif kind == b"mdat" and self._moof is not None:
+                self._on_fragment(self._moof + box)
+                self._moof = None
+
+
+def _codec_from_moov(moov):
+    """Stringa codec 'avc1.PPCCLL' presa dal box avcC (profilo, vincoli, livello)."""
+    i = moov.find(b"avcC")
+    if i < 0 or len(moov) < i + 8:
+        return "avc1.42C028"
+    return "avc1.%02X%02X%02X" % (moov[i + 5], moov[i + 6], moov[i + 7])
 
 
 class TvScreen:
@@ -37,6 +82,10 @@ class TvScreen:
         self._client_stats = {}
         self.last_client_fps = 0.0
         self.last_served = {}
+        self._video_init = None
+        self.codec = None
+        self._video_subs = []
+        self._assembler = None
 
     # --- stato ---
 
@@ -87,8 +136,13 @@ class TvScreen:
                 old.stop()
             cfg = PROFILES[profile]
             streamer = ScreenStreamer(target_fps=cfg["fps"], jpeg_quality=cfg["quality"],
-                                      max_width=cfg["max_width"], virtual=True)
-            streamer.start(self._on_frame)
+                                      max_width=cfg["max_width"], virtual=True,
+                                      h264=cfg.get("h264"))
+            self._video_init = None
+            self.codec = None
+            self._assembler = Fmp4Assembler(self._on_video_init, self._on_video_fragment) \
+                if cfg.get("h264") else None
+            streamer.start(self._on_frame, self._on_video if self._assembler else None)
             self._streamer = streamer
             self._profile = profile
             if not self._key:
@@ -104,9 +158,58 @@ class TvScreen:
         if streamer is not None:
             streamer.stop()
             log.info("Secondo schermo TV fermato")
+        self._video_init = None
+        self.codec = None
+        self._assembler = None
+        self._video_subs.clear()
         with self._cond:
             self._latest = None
             self._cond.notify_all()
+
+    # --- video H.264 ---
+
+    def _on_video(self, chunk):
+        assembler = self._assembler
+        if assembler is not None:
+            assembler.feed(chunk)
+
+    def _on_video_init(self, init, codec):
+        with self._cond:
+            self._video_init = init
+            self.codec = codec
+            self._cond.notify_all()
+        log.info(f"Video H.264 pronto per la TV ({codec})")
+
+    def _on_video_fragment(self, fragment):
+        for q in list(self._video_subs):
+            try:
+                q.put_nowait(fragment)
+            except Exception:
+                try:                       # chi e' in ritardo salta i frammenti vecchi
+                    q.get_nowait()
+                    q.put_nowait(fragment)
+                except Exception:
+                    pass
+
+    @property
+    def video_ready(self):
+        return self._video_init is not None
+
+    def wait_video_init(self, timeout=10.0):
+        with self._cond:
+            if self._video_init is None and self.active:
+                self._cond.wait(timeout=timeout)
+            return self._video_init
+
+    def video_subscribe(self):
+        import queue
+        q = queue.Queue(maxsize=24)         # ~5 secondi di frammenti
+        self._video_subs.append(q)
+        return q
+
+    def video_unsubscribe(self, q):
+        if q in self._video_subs:
+            self._video_subs.remove(q)
 
     def next_frame(self, after, timeout=2.0):
         """Ritorna (numero, jpeg) del fotogramma piu' recente se e' successivo a
@@ -168,7 +271,7 @@ VIEWER_PAGE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 html,body{margin:0;height:100%;background:#000;overflow:hidden}
-img{position:fixed;inset:0;width:100%;height:100%;object-fit:contain}
+img,video{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
 img.native{margin:auto;width:auto;height:auto;max-width:100%;max-height:100%}
 .note{position:fixed;left:0;right:0;text-align:center;color:#6fe3ff;font:22px sans-serif;display:none}
 #msg{top:45%}
@@ -176,7 +279,8 @@ img.native{margin:auto;width:auto;height:auto;max-width:100%;max-height:100%}
 #aud button{font:22px sans-serif;padding:10px 20px;color:#000;background:#6fe3ff;border:0}
 #delay{bottom:16px;color:#fff;background:rgba(0,0,0,.6);width:max-content;margin:auto;padding:6px 14px}
 </style></head><body>
-<img id="s" alt="">
+<video id="v" autoplay muted playsinline></video>
+<img id="s" alt="" style="display:none">
 <div id="msg" class="note">Connexus: in attesa del secondo schermo...</div>
 <div id="aud" class="note"><button id="audbtn">Premi OK per attivare l'audio</button></div>
 <div id="delay" class="note"></div>
@@ -185,45 +289,85 @@ var KEY = "__KEY__", RATE = __RATE__;
 var img = document.getElementById("s"), msg = document.getElementById("msg");
 var aud = document.getElementById("aud"), delayBox = document.getElementById("delay");
 
-/* ---- video: un fotogramma alla volta, sempre l'ultimo ---- */
-var seq = -1, lastUrl = null, frames = 0, bytes = 0, lat = 0, dbg = false, fpsTxt = "";
-function pull(){
-  var t = Date.now(), x = new XMLHttpRequest();
-  x.open("GET", "/tvframe.jpg?k=" + KEY + "&s=" + seq + "&t=" + t, true);
-  x.responseType = "blob";
-  x.timeout = 8000;
-  x.onload = function(){
-    if (x.status === 200){
-      var n = parseInt(x.getResponseHeader("X-Seq"), 10);
-      if (!isNaN(n)) seq = n;
-      lat = Date.now() - t; bytes += x.response.size; frames++;
-      msg.style.display = "none";
-      var url = URL.createObjectURL(x.response);
-      img.onload = function(){ if (lastUrl) URL.revokeObjectURL(lastUrl); lastUrl = url; pull(); };
-      img.onerror = function(){ URL.revokeObjectURL(url); setTimeout(pull, 300); };
-      img.src = url;
-    } else if (x.status === 204){
-      pull();                                   /* nessun cambiamento: richiedi subito */
-    } else {
-      msg.style.display = "block"; setTimeout(pull, 1500);
-    }
-  };
-  x.onerror = x.ontimeout = function(){ msg.style.display = "block"; setTimeout(pull, 1500); };
-  x.send();
-}
-setInterval(function(){
-  fpsTxt = frames + " fps" + (bytes ? "  " + lat + " ms  " + Math.round(bytes / 1024 / Math.max(1, frames)) + " KB" : "");
-  frames = 0; bytes = 0;
-  if (dbg){ delayBox.textContent = fpsTxt; delayBox.style.display = "block"; }
-}, 1000);
-var MODE = (location.search.match(/[?&]m=([0-9])/) || [0, "2"])[1];
+/* ---- video ---- */
+var video = document.getElementById("v");
+function tvlog(m){ try { new Image().src = "/tvlog?k=" + KEY + "&m=" + encodeURIComponent(m) + "&t=" + Date.now(); } catch (e) {} }
+
+/* ripiego: immagini JPEG, una alla volta */
+var frames = 0, dbg = false;
 function pullDirect(){
+  img.style.display = "block"; video.style.display = "none";
   img.onload = function(){ frames++; msg.style.display = "none"; pullDirect(); };
   img.onerror = function(){ msg.style.display = "block"; setTimeout(pullDirect, 1000); };
   img.src = "/tvframe.jpg?k=" + KEY + "&d=1&t=" + Date.now();
 }
-if (MODE === "3") img.className = "native";
-if (MODE === "1") pull(); else pullDirect();
+
+/* video H.264 con Media Source: il chip della TV lo decodifica */
+var usedFallback = false;
+function fallback(why){
+  if (usedFallback) return;
+  usedFallback = true; tvlog("ripiego JPEG: " + why); pullDirect();
+}
+function startMse(){
+  if (!window.MediaSource || !window.fetch) return fallback("MediaSource/fetch non disponibili");
+  fetch("/tvvideo.info?k=" + KEY).then(function(r){ return r.json(); }).then(function(info){
+    var mime = 'video/mp4; codecs="' + info.codec + '"';
+    var ok = MediaSource.isTypeSupported(mime);
+    tvlog("supporto " + mime + " = " + ok);
+    if (!ok) return fallback("codec non supportato");
+    var ms = new MediaSource(), sb = null, queue = [], gotData = false;
+    video.src = URL.createObjectURL(ms);
+    video.style.display = "block"; img.style.display = "none";
+    function pumpQueue(){
+      if (!sb || sb.updating || !queue.length) return;
+      try { sb.appendBuffer(queue.shift()); } catch (e) { tvlog("append: " + e.name); queue.length = 0; }
+    }
+    ms.addEventListener("sourceopen", function(){
+      sb = ms.addSourceBuffer(mime);
+      try { sb.mode = "sequence"; } catch (e) {}
+      sb.addEventListener("updateend", function(){
+        pumpQueue();
+        /* resta vicino al vivo e libera il passato */
+        try {
+          var b = video.buffered;
+          if (b.length){
+            var end = b.end(b.length - 1);
+            if (end - video.currentTime > 0.7) video.currentTime = end - 0.15;
+            if (!sb.updating && video.currentTime - b.start(0) > 8) sb.remove(b.start(0), video.currentTime - 4);
+          }
+          if (video.paused) video.play();
+        } catch (e) {}
+      });
+      fetch("/tvvideo.mp4?k=" + KEY).then(function(res){
+        var reader = res.body.getReader();
+        (function pump(){
+          reader.read().then(function(r){
+            if (r.done){ tvlog("flusso video chiuso"); setTimeout(function(){ location.reload(); }, 1500); return; }
+            if (!gotData){ gotData = true; tvlog("primi dati video"); }
+            queue.push(r.value); pumpQueue(); pump();
+          }).catch(function(e){ tvlog("lettura: " + e); setTimeout(function(){ location.reload(); }, 2000); });
+        })();
+      }).catch(function(e){ fallback("fetch: " + e); });
+    });
+    video.addEventListener("error", function(){ tvlog("errore video " + (video.error && video.error.code)); });
+    setTimeout(function(){ if (!gotData) fallback("nessun dato video in 10 s"); }, 10000);
+    var n = 0;
+    setInterval(function(){
+      n++; frames = video.webkitDecodedFrameCount || frames;
+      if (video.webkitDecodedFrameCount !== undefined){
+        var d = video.webkitDecodedFrameCount, f = d - (startMse.last || 0); startMse.last = d; frames = f;
+      }
+      if (n % 5 === 0 && video.buffered.length) tvlog("buffer " + (video.buffered.end(video.buffered.length - 1) - video.currentTime).toFixed(2) + "s fps " + frames);
+    }, 1000);
+  }).catch(function(e){ fallback("info: " + e); });
+}
+
+var MODE = (location.search.match(/[?&]m=([0-9a-z]+)/) || [0, "v"])[1];
+setInterval(function(){
+  if (dbg){ delayBox.textContent = frames + " fps" + (MODE === "j" ? " (JPEG)" : ""); delayBox.style.display = "block"; }
+  if (MODE === "j") frames = 0;
+}, 1000);
+if (MODE === "j") pullDirect(); else startMse();
 
 /* ---- audio (Web Audio: PCM 16 bit stereo dal PC) ---- */
 var ctx = null, nextTime = 0, delay = 0.35, carry = null;
