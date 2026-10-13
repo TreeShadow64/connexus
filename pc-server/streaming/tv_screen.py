@@ -19,6 +19,8 @@ log = logging.getLogger("hub-server")
 PROFILES = {
     # video H.264 decodificato dal chip della TV (consigliato); JPEG a 1280 px come ripiego
     "video": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1920, 30, 26)},
+    "video720": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1280, 30, 26)},
+    "video24": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1280, 24, 26)},
     "fluido": {"fps": 15, "quality": 60, "max_width": 1280},
     "nitido": {"fps": 12, "quality": 75, "max_width": 1920},
     "leggero": {"fps": 12, "quality": 55, "max_width": 960},
@@ -303,7 +305,7 @@ function pullDirect(){
 }
 
 /* video H.264 con Media Source: il chip della TV lo decodifica */
-var usedFallback = false;
+var usedFallback = false, seeks = 0, waits = 0, lastT = 0, lastTotal = 0, lastDrop = 0, tick = 0;
 function fallback(why){
   if (usedFallback) return;
   usedFallback = true; tvlog("ripiego JPEG: " + why); pullDirect();
@@ -330,11 +332,7 @@ function startMse(){
         /* resta vicino al vivo e libera il passato */
         try {
           var b = video.buffered;
-          if (b.length){
-            var end = b.end(b.length - 1);
-            if (end - video.currentTime > 0.7) video.currentTime = end - 0.15;
-            if (!sb.updating && video.currentTime - b.start(0) > 8) sb.remove(b.start(0), video.currentTime - 4);
-          }
+          if (b.length && !sb.updating && video.currentTime - b.start(0) > 8) sb.remove(b.start(0), video.currentTime - 4);
           if (video.paused) video.play();
         } catch (e) {}
       });
@@ -350,14 +348,32 @@ function startMse(){
       }).catch(function(e){ fallback("fetch: " + e); });
     });
     video.addEventListener("error", function(){ tvlog("errore video " + (video.error && video.error.code)); });
+    video.addEventListener("waiting", function(){ waits++; });
     setTimeout(function(){ if (!gotData) fallback("nessun dato video in 10 s"); }, 10000);
-    var n = 0;
     setInterval(function(){
-      n++; frames = video.webkitDecodedFrameCount || frames;
-      if (video.webkitDecodedFrameCount !== undefined){
-        var d = video.webkitDecodedFrameCount, f = d - (startMse.last || 0); startMse.last = d; frames = f;
+      try {
+        var bb = video.buffered;
+        if (bb.length){
+          var ahead = bb.end(bb.length - 1) - video.currentTime;
+          if (ahead > 2.0){ video.currentTime = bb.end(bb.length - 1) - 0.3; seeks++; }
+          else if (ahead > 0.6 && video.playbackRate !== 1.1) video.playbackRate = 1.1;     /* recupera piano piano */
+          else if (ahead < 0.35 && video.playbackRate !== 1.0) video.playbackRate = 1.0;
+        }
+      } catch (e) {}
+    }, 250);
+    setInterval(function(){
+      tick++;
+      var q = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality() : null;
+      var total = q ? q.totalVideoFrames : (video.webkitDecodedFrameCount || 0);
+      var drop = q ? q.droppedVideoFrames : (video.webkitDroppedFrameCount || 0);
+      frames = total - lastTotal;
+      if (tick % 2 === 0){
+        var ahead = video.buffered.length ? (video.buffered.end(video.buffered.length - 1) - video.currentTime) : -1;
+        tvlog("t+" + tick + "s avanza " + (video.currentTime - lastT).toFixed(2) + "s/2s, fotogrammi " + (total - lastTotal) +
+              ", scartati " + (drop - lastDrop) + ", buffer " + ahead.toFixed(2) + "s, rs " + video.readyState +
+              ", salti " + seeks + ", attese " + waits + ", " + video.videoWidth + "x" + video.videoHeight);
+        lastT = video.currentTime; lastTotal = total; lastDrop = drop;
       }
-      if (n % 5 === 0 && video.buffered.length) tvlog("buffer " + (video.buffered.end(video.buffered.length - 1) - video.currentTime).toFixed(2) + "s fps " + frames);
     }, 1000);
   }).catch(function(e){ fallback("info: " + e); });
 }
