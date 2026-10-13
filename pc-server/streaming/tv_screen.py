@@ -305,6 +305,7 @@ function pullDirect(){
 }
 
 /* video H.264 con Media Source: il chip della TV lo decodifica */
+var RATECTL = location.search.indexOf("r=1") >= 0, trimmed = false, TRIM = location.search.indexOf("trim=1") >= 0;
 var usedFallback = false, seeks = 0, waits = 0, lastT = 0, lastTotal = 0, lastDrop = 0, tick = 0;
 function fallback(why){
   if (usedFallback) return;
@@ -356,8 +357,9 @@ function startMse(){
         if (bb.length){
           var ahead = bb.end(bb.length - 1) - video.currentTime;
           if (ahead > 2.0){ video.currentTime = bb.end(bb.length - 1) - 0.3; seeks++; }
-          else if (ahead > 0.6 && video.playbackRate !== 1.1) video.playbackRate = 1.1;     /* recupera piano piano */
-          else if (ahead < 0.35 && video.playbackRate !== 1.0) video.playbackRate = 1.0;
+          else if (!trimmed && tick > 3 && ahead > 0.6 && TRIM){ trimmed = true; video.currentTime = bb.end(bb.length - 1) - 0.35; seeks++; }
+          else if (RATECTL && ahead > 0.6 && video.playbackRate !== 1.1) video.playbackRate = 1.1;     /* recupera piano piano */
+          else if (RATECTL && ahead < 0.35 && video.playbackRate !== 1.0) video.playbackRate = 1.0;
         }
       } catch (e) {}
     }, 250);
