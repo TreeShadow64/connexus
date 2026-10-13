@@ -388,7 +388,7 @@ setInterval(function(){
 if (MODE === "j") pullDirect(); else startMse();
 
 /* ---- audio (Web Audio: PCM 16 bit stereo dal PC) ---- */
-var ctx = null, nextTime = 0, delay = 0.35, carry = null;
+var ctx = null, nextTime = 0, delay = 0.95, carry = null;   /* il video ha ~1 s di ritardo (buffer della TV): l'audio lo segue */
 function resetClock(){ nextTime = ctx.currentTime + 0.08 + delay; }
 var pend = [], pendLen = 0, BLOCK = Math.round(RATE * 0.09) * 4;   /* blocchi da ~90 ms: meno lavoro per la TV */
 function playChunk(bytes){
