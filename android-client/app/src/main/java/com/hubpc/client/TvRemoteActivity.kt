@@ -86,6 +86,16 @@ class TvRemoteActivity : AppCompatActivity() {
             log("Ricerca delle TV sulla rete...")
         }
 
+        binding.buttonScreenOpen.setOnClickListener {
+            sendCommand(JSONObject().put("type", "tvscreen_open"))
+            binding.textScreenState.text = "Creo il monitor virtuale e lo apro sulla TV..."
+            log("Secondo schermo: avvio in corso")
+        }
+        binding.buttonScreenStop.setOnClickListener {
+            sendCommand(JSONObject().put("type", "tvscreen_stop"))
+            binding.textScreenState.text = "spento: le finestre tornano sullo schermo principale"
+        }
+
         binding.buttonTvRefreshApps.setOnClickListener {
             sendCommand(JSONObject().put("type", "tv_list_apps"))
             log("Aggiornamento elenco app...")
@@ -521,7 +531,11 @@ class TvRemoteActivity : AppCompatActivity() {
             "auth_error" -> log("Autenticazione fallita")
             "tv_found" -> showTvChooser(json)
             "tv_ok" -> {
-                if (json.has("paired")) {
+                if (json.has("url")) {
+                    binding.textScreenState.text =
+                        "acceso: sposta il mouse oltre il bordo destro dello schermo del PC per usarlo"
+                    log(json.optString("message"))
+                } else if (json.has("paired")) {
                     // risposta a tv_set: se la TV ha gia' la chiave non serve riabbinarla
                     if (json.optBoolean("paired")) {
                         binding.textPairStatus.text = "TV abbinata: $chosenTvName"
@@ -538,7 +552,10 @@ class TvRemoteActivity : AppCompatActivity() {
                     sendCommand(JSONObject().put("type", "tv_list_apps"))
                 }
             }
-            "tv_error" -> log("Errore TV: ${json.optString("message")}")
+            "tv_error" -> {
+                if (json.has("url")) binding.textScreenState.text = json.optString("message")
+                log("Errore TV: ${json.optString("message")}")
+            }
             "tv_apps" -> {
                 val apps = json.optJSONArray("apps")
                 if (apps != null) {

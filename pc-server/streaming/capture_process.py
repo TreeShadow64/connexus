@@ -76,17 +76,48 @@ def write_message(kind, payload):
     sys.stdout.buffer.flush()
 
 
+def _open_virtual_monitor(virtual_display):
+    """Crea (o riusa) un monitor virtuale Parsec e ne ritorna geometria e gestore.
+
+    Il monitor vive finche' questo processo tiene aperto il gestore: se il
+    processo termina, Windows lo rimuove da solo e le finestre tornano sul
+    monitor principale."""
+    existing = virtual_display.find_virtual_display()
+    manager = None
+    if existing is None:
+        manager = virtual_display.VirtualDisplay()
+        manager.add_display()
+        deadline = time.time() + 8
+        existing = virtual_display.find_virtual_display()
+        while existing is None and time.time() < deadline:
+            time.sleep(0.5)
+            existing = virtual_display.find_virtual_display()
+    return existing, manager
+
+
 def main():
     target_fps = int(sys.argv[1])
     jpeg_quality = int(sys.argv[2])
     max_width = int(sys.argv[3])
+    virtual = len(sys.argv) > 4 and sys.argv[4] == "virtual"
 
     from streaming import virtual_display
 
-    geometry = virtual_display.find_primary_display()
-    if geometry is None:
-        log("ERRORE: monitor principale non trovato")
-        return 1
+    manager = None
+    if virtual:
+        try:
+            geometry, manager = _open_virtual_monitor(virtual_display)
+        except Exception as e:
+            log(f"ERRORE: monitor virtuale non creato: {e}")
+            return 1
+        if geometry is None:
+            log("ERRORE: il monitor virtuale non e' comparso (driver Parsec installato?)")
+            return 1
+    else:
+        geometry = virtual_display.find_primary_display()
+        if geometry is None:
+            log("ERRORE: monitor principale non trovato")
+            return 1
 
     import cv2
     import numpy as np
@@ -104,7 +135,7 @@ def main():
         return 1
 
     write_message(MSG_GEOMETRY, json.dumps(geometry).encode("utf-8"))
-    log(f"cattura del monitor principale avviata su {geometry['device_name']}")
+    log(f"cattura del monitor {'virtuale' if virtual else 'principale'} avviata su {geometry['device_name']}")
 
     camera.start(target_fps=target_fps, video_mode=True)
 
@@ -165,6 +196,12 @@ def main():
             write_message(MSG_FRAME, last_encoded)
     except (BrokenPipeError, OSError):
         pass  # il server ha chiuso la pipe: e' il segnale di terminare
+    finally:
+        if manager is not None:
+            try:
+                manager.close()
+            except Exception:
+                pass
     return 0
 
 

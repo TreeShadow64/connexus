@@ -643,6 +643,55 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
+            <!-- la tv come secondo schermo del pc -->
+            <LinearLayout
+                style="@style/HudPanelRaised"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/Text.Hud.Eyebrow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="la tv come secondo schermo del pc" />
+
+                <TextView
+                    android:id="@+id/textScreenState"
+                    style="@style/Text.Hud.Status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="spento: crea un monitor in piu' sul PC e lo mostra sulla TV"
+                    android:textAllCaps="false" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/buttonScreenOpen"
+                        style="@style/Widget.Hud.Button.Accent"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:text="MOSTRA SULLA TV" />
+
+                    <Button
+                        android:id="@+id/buttonScreenStop"
+                        style="@style/Widget.Hud.Button.Danger"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:text="SPEGNI" />
+                </LinearLayout>
+            </LinearLayout>
+
             <LinearLayout
                 style="@style/HudPanelRaised"
                 android:layout_width="match_parent"

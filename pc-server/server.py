@@ -1,4 +1,5 @@
 import asyncio
+import socket
 import json
 import logging
 import mimetypes
@@ -38,6 +39,8 @@ from remote_input import service_client
 from core import wol
 from remote_input import mouse_guard
 from streaming import screen_stream
+from streaming import tv_screen as tv_screen_module
+from streaming import tv_audio as tv_audio_module
 from core import updater
 from casting import webos_discovery
 from casting import webos_remote
@@ -213,6 +216,12 @@ def handle_command(data, conn_key=None, peer_ip=None):
             return {"type": "tv_error", "message": f"Servizio non disponibile: {str(e) or type(e).__name__}"}
     elif cmd in ("launch_parsec", "launch_vpn", "apps_get", "apps_set"):
         return handle_external_apps(cmd, data)
+    elif cmd == "tvscreen_stop":
+        tv_screen_module.tv_screen.stop()
+        tv_audio_module.tv_audio.stop_all()
+        return {"type": "tv_ok", "message": "Secondo schermo fermato"}
+    elif cmd == "tvscreen_status":
+        return {"type": "tvscreen_status", **tv_screen_status()}
     elif cmd == "system_power":
         return system_power(data.get("action", ""))
     elif cmd == "get_mac_address":
@@ -366,6 +375,20 @@ async def handle_async_command(data):
         return {"type": "tv_error", "message": "Nessuna TV scelta: premi ABBINA TV per cercarla sulla rete"}
     tv_ip = await _heal_tv_ip(config)
 
+    if cmd == "tvscreen_open":
+        started = await asyncio.to_thread(tv_screen_start, data.get("profile"))
+        if not started.get("ok"):
+            return {"type": "tv_error", "message": started["error"]}
+        url = tv_screen_url()
+        try:
+            await webos_remote.open_url(tv_ip, config.get("client_key"), url)
+        except Exception as e:
+            reason = "la TV non risponde (accesa e sulla stessa rete?)" if isinstance(e, (TimeoutError, asyncio.TimeoutError, OSError))                 else (str(e) or type(e).__name__)
+            return {"type": "tv_error", "url": url,
+                    "message": f"Secondo schermo pronto, ma non si apre sulla TV: {reason}. "
+                               f"Apri a mano il browser della TV su: {url}"}
+        return {"type": "tv_ok", "message": "Secondo schermo aperto sulla TV", "url": url}
+
     if cmd == "tv_pair":
         try:
             client_key = await webos_remote.pair(tv_ip, config.get("client_key") or None)
@@ -454,8 +477,41 @@ async def handle_async_command(data):
 ASYNC_COMMANDS = {
     "tv_pair", "tv_command", "tv_dpad", "tv_button",
     "tv_list_apps", "tv_launch_app", "tv_list_inputs", "tv_switch_input",
-    "tv_discover", "tv_set",
+    "tv_discover", "tv_set", "tvscreen_open",
 }
+
+
+def tv_screen_url():
+    screen = tv_screen_module.tv_screen
+    if not screen.active:
+        return ""
+    return f"http://{pairing.lan_ip()}:{MEDIA_HTTP_PORT}/tvscreen?k={screen.key}"
+
+
+def tv_screen_status():
+    screen = tv_screen_module.tv_screen
+    return {"active": screen.active, "viewers": screen.viewers, "geometry": screen.geometry}
+
+
+def tv_screen_start(profile=None):
+    try:
+        geometry = tv_screen_module.tv_screen.start(profile)
+        try:
+            import pyaudiowpatch as _pa  # solo per sapere la frequenza prima di aprire la pagina
+            _p = _pa.PyAudio()
+            _w = _p.get_host_api_info_by_type(_pa.paWASAPI)
+            _spk = _p.get_device_info_by_index(_w["defaultOutputDevice"])
+            for _d in _p.get_loopback_device_info_generator():
+                if _spk["name"] in _d["name"]:
+                    tv_audio_module.tv_audio.rate = int(_d["defaultSampleRate"])
+                    break
+            _p.terminate()
+        except Exception:
+            pass
+    except Exception as e:
+        log.warning(f"Secondo schermo TV non avviato: {e}")
+        return {"ok": False, "error": f"Secondo schermo non avviato: {str(e) or type(e).__name__}"}
+    return {"ok": True, "geometry": geometry}
 
 
 def handle_external_apps(cmd, data):
@@ -723,7 +779,114 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/fs/download"):
             self._serve_download()
             return
+        if self.path.startswith(("/tvscreen", "/tvaudio", "/tvframe")):
+            self._serve_tv_screen()
+            return
         super().do_GET()
+
+    def _serve_tv_audio(self):
+        """Audio di sistema del PC come PCM 16 bit stereo, per la pagina della TV."""
+        audio = tv_audio_module.tv_audio
+        try:
+            q, rate = audio.subscribe()
+        except Exception as e:
+            log.warning(f"Audio verso la TV non disponibile: {e}")
+            self.send_error(503, "Audio non disponibile")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")
+        self.send_header("X-Sample-Rate", str(rate))
+        self.end_headers()
+        try:
+            self.connection.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 65536)
+        except OSError:
+            pass
+        silence = audio.silence()
+        try:
+            while tv_screen_module.tv_screen.active:
+                try:
+                    chunk = q.get(timeout=1.0)
+                except Exception:
+                    chunk = silence
+                self.wfile.write(chunk)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            audio.unsubscribe(q)
+
+    def _serve_tv_screen(self):
+        """Pagina e flusso MJPEG del secondo schermo, per il browser della TV."""
+        parsed = urlparse(self.path)
+        key = parse_qs(parsed.query).get("k", [None])[0]
+        screen = tv_screen_module.tv_screen
+        if not screen.check_key(key):
+            self.send_error(403, "Secondo schermo non attivo o chiave non valida")
+            return
+        if parsed.path == "/tvframe.jpg":
+            after = parse_qs(parsed.query).get("s", ["-1"])[0]
+            try:
+                after = int(after)
+            except ValueError:
+                after = -1
+            seq, jpeg = screen.next_frame(after)
+            if jpeg is None:
+                self.send_response(204)
+                self.send_header("X-Seq", str(seq))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(jpeg)))
+            self.send_header("X-Seq", str(seq))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            try:
+                self.wfile.write(jpeg)
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass
+            return
+        if parsed.path == "/tvaudio.pcm":
+            self._serve_tv_audio()
+            return
+        if parsed.path == "/tvscreen":
+            # frequenza dell'audio nota prima di aprire la pagina (la cattura parte al primo ascoltatore)
+            rate = tv_audio_module.tv_audio.rate or 48000
+            body = (tv_screen_module.VIEWER_PAGE.replace("__KEY__", key)
+                    .replace("__RATE__", str(rate))).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if parsed.path != "/tvscreen.mjpg":
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=connexusframe")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        try:
+            # buffer di invio piccolo: se la TV e' lenta a decodificare, Windows non
+            # deve accumulare decine di fotogrammi (sarebbe ritardo che cresce)
+            self.connection.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 131072)
+        except OSError:
+            pass
+        try:
+            for jpeg in screen.frames():
+                self.wfile.write(
+                    b"--connexusframe\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                    + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n"
+                )
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass  # la TV ha chiuso la pagina
 
     def do_PUT(self):
         if self.path.startswith("/cast-upload/"):
@@ -1409,6 +1572,10 @@ def collect_dashboard_status():
         "service_installed": service_client.is_installed(),
         "account_paired": firebase_relay.is_enabled(),
         "own_device_id": firebase_relay.own_device_id(),
+        "tvscreen_active": tv_screen_module.tv_screen.active,
+        "tvscreen_viewers": tv_screen_module.tv_screen.viewers,
+        "tvscreen_profile": tv_screen_module.tv_screen.profile,
+        "tvaudio_listeners": tv_audio_module.tv_audio.listeners,
         "app_version": updater.APP_VERSION,
         "update_progress": updater.get_progress(),
     }
@@ -1459,7 +1626,7 @@ def handle_dashboard_action(action, payload):
     if action in (
         "tv_pair", "tv_command", "tv_dpad", "tv_button",
         "tv_list_apps", "tv_launch_app", "tv_list_inputs", "tv_switch_input",
-        "tv_discover", "tv_set",
+        "tv_discover", "tv_set", "tvscreen_open",
     ):
         # handle_async_command() gira sul loop asyncio principale (chiamate
         # di rete verso la TV): questa azione arriva pero' dal thread
@@ -1489,6 +1656,12 @@ def handle_dashboard_action(action, payload):
         return stop_tv_share()
     if action in ("launch_parsec", "launch_vpn", "apps_get", "apps_set"):
         return handle_external_apps(action, payload)
+    if action == "tvscreen_start":
+        return tv_screen_start(payload.get("profile"))
+    if action == "tvscreen_stop":
+        tv_screen_module.tv_screen.stop()
+        tv_audio_module.tv_audio.stop_all()
+        return {"ok": True}
     if action == "paths_get":
         return {"ok": True, **ui_state.get_paths()}
     if action == "paths_set":

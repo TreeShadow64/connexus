@@ -247,10 +247,40 @@ function showTvSubview(name) {
     });
     document.getElementById("subview-telecomando").hidden = name !== "telecomando";
     document.getElementById("subview-condividi").hidden = name !== "condividi";
+    document.getElementById("subview-schermo").hidden = name !== "schermo";
+    if (name === "schermo" && lastStatus) updateTvScreenUI(lastStatus);
     if (name === "condividi") {
         if (document.getElementById("tvLocalEntries").children.length === 0) tvLoadLocal();
         if (lastStatus) updateTvShareUI(lastStatus);
     }
+}
+
+// ---------- secondo schermo sulla TV ----------
+
+function updateTvScreenUI(status) {
+    const on = !!status.tvscreen_active;
+    document.getElementById("tvScreenState").textContent = on
+        ? `acceso · ${status.tvscreen_viewers > 0 ? "la TV lo sta guardando" : "in attesa della TV"}`
+        : "spento";
+    document.getElementById("tvScreenOpenBtn").textContent = on ? "RIAPRI SULLA TV" : "MOSTRA SULLA TV";
+    document.getElementById("tvScreenStopBtn").hidden = !on;
+}
+
+async function tvScreenOpen() {
+    const status = document.getElementById("tvScreenStatus");
+    status.textContent = "Creo il monitor virtuale e lo apro sulla TV...";
+    const result = await runAction("tvscreen_open");
+    status.textContent = result.type === "tv_ok"
+        ? "Fatto. Sposta il mouse oltre il bordo destro dello schermo per usarlo."
+        : (result.message || result.error || "Operazione non riuscita");
+    loadStatus();
+}
+
+async function tvScreenStop() {
+    const status = document.getElementById("tvScreenStatus");
+    const result = await runAction("tvscreen_stop");
+    status.textContent = result.ok ? "Secondo schermo spento: le finestre tornano sullo schermo principale." : (result.error || "Errore");
+    loadStatus();
 }
 
 function tvSetStatus(text) {
@@ -1219,6 +1249,7 @@ async function loadStatus() {
             ? `TV abbinata: ${status.tv_name || status.tv_ip || ""}`.trim()
             : (status.tv_ip ? `TV non abbinata (${status.tv_name || status.tv_ip})` : "Nessuna TV scelta");
             if (currentTvSubview === "condividi") updateTvShareUI(status);
+            if (currentTvSubview === "schermo") updateTvScreenUI(status);
         }
     } catch (e) {
         document.getElementById("systemStatus").textContent = "NON RAGGIUNGIBILE";

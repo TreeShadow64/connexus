@@ -204,6 +204,19 @@ async def launch_app(tv_ip, client_key, app_id, timeout=8):
     )
 
 
+async def open_url(tv_ip, client_key, url, timeout=10):
+    """Apre un indirizzo web nel browser della TV."""
+    try:
+        return await send_request(
+            tv_ip, client_key, "ssap://system.launcher/launch",
+            {"id": "com.webos.app.browser", "params": {"target": url}}, timeout,
+        )
+    except Exception:
+        return await send_request(
+            tv_ip, client_key, "ssap://system.launcher/open", {"target": url}, timeout,
+        )
+
+
 async def list_inputs(tv_ip, client_key, timeout=8):
     """Elenco reale delle sorgenti (HDMI, AV, ...) con id e nome mostrato."""
     r = await send_request(tv_ip, client_key, "ssap://tv/getExternalInputList", timeout=timeout)

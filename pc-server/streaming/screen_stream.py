@@ -34,7 +34,8 @@ MSG_FRAME = 2
 class ScreenStreamer:
     """Supervisiona il processo figlio che possiede monitor virtuale e cattura."""
 
-    def __init__(self, target_fps=20, jpeg_quality=85, max_width=1920):
+    def __init__(self, target_fps=20, jpeg_quality=85, max_width=1920, virtual=False):
+        self.virtual = virtual
         self.target_fps = target_fps
         self.jpeg_quality = jpeg_quality
         self.max_width = max_width
@@ -59,13 +60,14 @@ class ScreenStreamer:
         # uno script sciolto, quindi si rilancia l'exe stesso con un flag
         # dedicato che desktop_app.py intercetta prima di avviare il resto
         # dell'app (stesso bundle, stessi moduli gia' inclusi).
+        extra = ["virtual"] if self.virtual else []
         if getattr(sys, "frozen", False):
             args = [sys.executable, "--capture-process", str(self.target_fps),
-                     str(self.jpeg_quality), str(self.max_width)]
+                     str(self.jpeg_quality), str(self.max_width)] + extra
         else:
             # cwd e' pc-server (app_dir): "-m" trova il pacchetto streaming
             args = [sys.executable, "-m", "streaming.capture_process",
-                     str(self.target_fps), str(self.jpeg_quality), str(self.max_width)]
+                     str(self.target_fps), str(self.jpeg_quality), str(self.max_width)] + extra
         self._process = subprocess.Popen(
             args,
             cwd=str(app_dir()),
