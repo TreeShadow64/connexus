@@ -188,6 +188,12 @@
                             Crea un secondo monitor sul PC e lo mostra nel browser della TV.
                             Poi basta trascinare le finestre oltre il bordo destro dello schermo.
                         </div>
+                        <div class="hud-eyebrow" style="margin-top:18px;">mouse: dove puo' andare il puntatore</div>
+                        <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
+                            <button class="hud-button" id="mouseModeFree" onclick="setMouseMode('free')">LIBERO</button>
+                            <button class="hud-button" id="mouseModePrimary" onclick="setMouseMode('primary')">SOLO SCHERMO 1 (PC)</button>
+                            <button class="hud-button" id="mouseModeSecondary" onclick="setMouseMode('secondary')">SOLO SCHERMO 2 (TV)</button>
+                        </div>
                         <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
                             <button class="hud-button" id="tvScreenOpenBtn" onclick="tvScreenOpen()">MOSTRA SULLA TV</button>
                             <button class="hud-button danger" id="tvScreenStopBtn" onclick="tvScreenStop()" hidden>SPEGNI SECONDO SCHERMO</button>

@@ -258,13 +258,13 @@ def handle_command(data, conn_key=None, peer_ip=None):
             }
         except file_browser.FileBrowserError as e:
             return {"type": "fs_error", "message": str(e)}
-    elif cmd == "mouse_lock":
-        locked = mouse_guard.guard.set_locked(bool(data.get("enabled")))
-        message = (
-            "Mouse bloccato sullo schermo principale" if locked
-            else "Mouse libero di passare tra gli schermi"
-        )
-        return {"type": "mouse_lock_state", "locked": locked, "message": message}
+    elif cmd in ("mouse_lock", "mouse_lock_get"):
+        if cmd == "mouse_lock":
+            if "mode" in data:
+                mouse_guard.guard.set_mode(data.get("mode"))
+            else:
+                mouse_guard.guard.set_locked(bool(data.get("enabled")))
+        return mouse_lock_reply()
     elif cmd == "register_account":
         return firebase_relay.register_account(data.get("custom_token", ""))
     return None
@@ -479,6 +479,17 @@ ASYNC_COMMANDS = {
     "tv_list_apps", "tv_launch_app", "tv_list_inputs", "tv_switch_input",
     "tv_discover", "tv_set", "tvscreen_open",
 }
+
+
+def mouse_lock_reply():
+    mode = mouse_guard.guard.mode
+    message = {
+        mouse_guard.MODE_FREE: "Mouse libero di passare tra gli schermi",
+        mouse_guard.MODE_PRIMARY: "Mouse bloccato solo sullo schermo 1",
+        mouse_guard.MODE_SECONDARY: "Mouse bloccato solo sullo schermo 2 (TV)",
+    }[mode]
+    return {"type": "mouse_lock_state", "locked": mode != mouse_guard.MODE_FREE,
+            "mode": mode, "message": message}
 
 
 def tv_screen_url():
@@ -1638,6 +1649,7 @@ def collect_dashboard_status():
         "service_installed": service_client.is_installed(),
         "account_paired": firebase_relay.is_enabled(),
         "own_device_id": firebase_relay.own_device_id(),
+        "mouse_mode": mouse_guard.guard.mode,
         "tvscreen_active": tv_screen_module.tv_screen.active,
         "tvscreen_viewers": tv_screen_module.tv_screen.viewers,
         "tvscreen_profile": tv_screen_module.tv_screen.profile,
@@ -1722,6 +1734,9 @@ def handle_dashboard_action(action, payload):
         return stop_tv_share()
     if action in ("launch_parsec", "launch_vpn", "apps_get", "apps_set"):
         return handle_external_apps(action, payload)
+    if action == "mouse_confine":
+        mouse_guard.guard.set_mode(payload.get("mode"))
+        return {"ok": True, **mouse_lock_reply()}
     if action == "tvscreen_start":
         return tv_screen_start(payload.get("profile"))
     if action == "tvscreen_stop":

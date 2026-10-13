@@ -258,12 +258,32 @@ function showTvSubview(name) {
 // ---------- secondo schermo sulla TV ----------
 
 function updateTvScreenUI(status) {
+    updateMouseUI(status.mouse_mode || "free");
     const on = !!status.tvscreen_active;
     document.getElementById("tvScreenState").textContent = on
         ? `acceso · ${status.tvscreen_viewers > 0 ? "la TV lo sta guardando" : "in attesa della TV"}`
         : "spento";
     document.getElementById("tvScreenOpenBtn").textContent = on ? "RIAPRI SULLA TV" : "MOSTRA SULLA TV";
     document.getElementById("tvScreenStopBtn").hidden = !on;
+}
+
+const MOUSE_BUTTONS = { free: "mouseModeFree", primary: "mouseModePrimary", secondary: "mouseModeSecondary" };
+
+function updateMouseUI(mode) {
+    Object.keys(MOUSE_BUTTONS).forEach(m => {
+        const el = document.getElementById(MOUSE_BUTTONS[m]);
+        if (!el) return;
+        el.classList.toggle("active", m === mode);
+        el.style.borderColor = m === mode ? "var(--cyan-glow)" : "";
+        el.style.boxShadow = m === mode ? "0 0 10px rgba(111,227,255,.45)" : "";
+    });
+}
+
+async function setMouseMode(mode) {
+    const status = document.getElementById("tvScreenStatus");
+    const result = await runAction("mouse_confine", { mode });
+    status.textContent = result.message || result.error || "Errore";
+    updateMouseUI(result.mode || mode);
 }
 
 async function tvScreenOpen() {

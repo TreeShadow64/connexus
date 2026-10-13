@@ -129,22 +129,54 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Text.Hud.Eyebrow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="mouse: dove puo' andare il puntatore" />
 
             <TextView
                 android:id="@+id/textMouseLockStatus"
                 style="@style/Text.Hud.Status"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="mouse: libero tra gli schermi" />
+                android:layout_marginTop="4dp"
+                android:text="mouse: libero tra gli schermi"
+                android:textAllCaps="false" />
 
-            <Button
-                android:id="@+id/buttonMouseLock"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="BLOCCA" />
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/buttonMouseFree"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1"
+                    android:text="LIBERO" />
+
+                <Button
+                    android:id="@+id/buttonMousePrimary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1"
+                    android:text="SOLO PC" />
+
+                <Button
+                    android:id="@+id/buttonMouseSecondary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="SOLO TV" />
+            </LinearLayout>
         </LinearLayout>
 
         <TextView

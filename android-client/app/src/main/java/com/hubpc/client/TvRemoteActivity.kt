@@ -91,6 +91,9 @@ class TvRemoteActivity : AppCompatActivity() {
             binding.textScreenState.text = "Creo il monitor virtuale e lo apro sulla TV..."
             log("Secondo schermo: avvio in corso")
         }
+        binding.buttonScreenMouseFree.setOnClickListener { setScreenMouse("free") }
+        binding.buttonScreenMousePrimary.setOnClickListener { setScreenMouse("primary") }
+        binding.buttonScreenMouseSecondary.setOnClickListener { setScreenMouse("secondary") }
         binding.buttonScreenStop.setOnClickListener {
             sendCommand(JSONObject().put("type", "tvscreen_stop"))
             binding.textScreenState.text = "spento: le finestre tornano sullo schermo principale"
@@ -424,6 +427,10 @@ class TvRemoteActivity : AppCompatActivity() {
         }.start()
     }
 
+    private fun setScreenMouse(mode: String) {
+        sendCommand(JSONObject().put("type", "mouse_lock").put("mode", mode))
+    }
+
     private var chosenTvName = ""
 
     private fun chooseTv(ip: String, uuid: String, name: String) {
@@ -527,8 +534,24 @@ class TvRemoteActivity : AppCompatActivity() {
                 binding.textPairStatus.text = "connesso — se i tasti non rispondono, riabbina la TV"
                 log("Connesso.")
                 sendCommand(JSONObject().put("type", "tv_list_apps"))
+                sendCommand(JSONObject().put("type", "mouse_lock_get"))
             }
             "auth_error" -> log("Autenticazione fallita")
+            "mouse_lock_state" -> {
+                val mode = json.optString("mode", "free")
+                binding.textScreenMouse.text = when (mode) {
+                    "primary" -> "mouse: solo sullo schermo 1 (PC)"
+                    "secondary" -> "mouse: solo sullo schermo 2 (TV)"
+                    else -> "mouse: libero tra gli schermi"
+                }
+                for ((button, m) in listOf(
+                    binding.buttonScreenMouseFree to "free",
+                    binding.buttonScreenMousePrimary to "primary",
+                    binding.buttonScreenMouseSecondary to "secondary",
+                )) {
+                    button.alpha = if (m == mode) 1f else 0.55f
+                }
+            }
             "tv_found" -> showTvChooser(json)
             "tv_ok" -> {
                 if (json.has("url")) {

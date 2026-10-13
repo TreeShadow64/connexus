@@ -73,10 +73,9 @@ class PcControlActivity : AppCompatActivity() {
         binding.buttonClickRight.setOnClickListener { sendClick("right") }
         binding.scrollWheel.setOnTouchListener { _, event -> handleWheel(event) }
 
-        binding.buttonMouseLock.setOnClickListener {
-            mouseLocked = !mouseLocked
-            sendCommand(JSONObject().put("type", "mouse_lock").put("enabled", mouseLocked))
-        }
+        binding.buttonMouseFree.setOnClickListener { setMouseMode("free") }
+        binding.buttonMousePrimary.setOnClickListener { setMouseMode("primary") }
+        binding.buttonMouseSecondary.setOnClickListener { setMouseMode("secondary") }
 
         binding.buttonOpenPower.setOnClickListener { showPowerDialog() }
         binding.buttonOpenKeyboard.setOnClickListener { showKeyboardDialog() }
@@ -230,6 +229,10 @@ class PcControlActivity : AppCompatActivity() {
         sendCommand(JSONObject().put("type", "key").put("value", value))
     }
 
+    private fun setMouseMode(mode: String) {
+        sendCommand(JSONObject().put("type", "mouse_lock").put("mode", mode))
+    }
+
     private fun sendCommand(json: JSONObject) {
         if (!authenticated) {
             log("Non ancora autenticato")
@@ -265,13 +268,24 @@ class PcControlActivity : AppCompatActivity() {
                 authenticated = true
                 log("Connesso.")
                 sendCommand(JSONObject().put("type", "service_status"))
+                sendCommand(JSONObject().put("type", "mouse_lock_get"))
             }
             "auth_error" -> log("Autenticazione fallita")
             "mouse_lock_state" -> {
                 mouseLocked = json.optBoolean("locked")
-                binding.textMouseLockStatus.text =
-                    if (mouseLocked) "mouse: bloccato sullo schermo principale"
-                    else "mouse: libero tra gli schermi"
+                val mode = json.optString("mode", if (mouseLocked) "primary" else "free")
+                binding.textMouseLockStatus.text = when (mode) {
+                    "primary" -> "mouse: solo sullo schermo 1 (PC)"
+                    "secondary" -> "mouse: solo sullo schermo 2 (TV)"
+                    else -> "mouse: libero tra gli schermi"
+                }
+                for ((button, m) in listOf(
+                    binding.buttonMouseFree to "free",
+                    binding.buttonMousePrimary to "primary",
+                    binding.buttonMouseSecondary to "secondary",
+                )) {
+                    button.alpha = if (m == mode) 1f else 0.55f
+                }
             }
             "service_status_result" -> {
                 serviceInstalled = json.optBoolean("installed")
