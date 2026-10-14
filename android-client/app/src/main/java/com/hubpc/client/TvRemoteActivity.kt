@@ -94,6 +94,8 @@ class TvRemoteActivity : AppCompatActivity() {
         binding.buttonScreenMouseFree.setOnClickListener { setScreenMouse("free") }
         binding.buttonScreenMousePrimary.setOnClickListener { setScreenMouse("primary") }
         binding.buttonScreenMouseSecondary.setOnClickListener { setScreenMouse("secondary") }
+        binding.buttonScreenAudioTv.setOnClickListener { setScreenAudio("tv") }
+        binding.buttonScreenAudioPc.setOnClickListener { setScreenAudio("pc") }
         binding.buttonScreenStop.setOnClickListener {
             sendCommand(JSONObject().put("type", "tvscreen_stop"))
             binding.textScreenState.text = "spento: le finestre tornano sullo schermo principale"
@@ -427,6 +429,10 @@ class TvRemoteActivity : AppCompatActivity() {
         }.start()
     }
 
+    private fun setScreenAudio(route: String) {
+        sendCommand(JSONObject().put("type", "tv_audio_route").put("route", route))
+    }
+
     private fun setScreenMouse(mode: String) {
         sendCommand(JSONObject().put("type", "mouse_lock").put("mode", mode))
     }
@@ -535,8 +541,19 @@ class TvRemoteActivity : AppCompatActivity() {
                 log("Connesso.")
                 sendCommand(JSONObject().put("type", "tv_list_apps"))
                 sendCommand(JSONObject().put("type", "mouse_lock_get"))
+                sendCommand(JSONObject().put("type", "tv_audio_route_get"))
             }
             "auth_error" -> log("Autenticazione fallita")
+            "tv_audio_state" -> {
+                val route = json.optString("route", "tv")
+                binding.textScreenAudio.text = if (route == "pc") {
+                    "audio: resta sul PC"
+                } else {
+                    "audio: si sente sulla TV (PC silenzioso)"
+                }
+                binding.buttonScreenAudioTv.alpha = if (route == "tv") 1f else 0.55f
+                binding.buttonScreenAudioPc.alpha = if (route == "pc") 1f else 0.55f
+            }
             "mouse_lock_state" -> {
                 val mode = json.optString("mode", "free")
                 binding.textScreenMouse.text = when (mode) {

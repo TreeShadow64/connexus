@@ -14,12 +14,14 @@ import ctypes
 import json
 import struct
 import sys
+import threading
 import time
 from ctypes import wintypes
 
 MSG_GEOMETRY = 1
 MSG_FRAME = 2
 MSG_VIDEO = 3      # byte del flusso MP4 frammentato (H.264)
+MSG_RTC = 4        # risposta SDP alla segnalazione WebRTC (JSON)
 
 KEEPALIVE_S = 1.0
 
@@ -71,10 +73,18 @@ def log(message):
     print(message, file=sys.stderr, flush=True)
 
 
+_out_lock = threading.Lock()
+
+
 def write_message(kind, payload):
-    sys.stdout.buffer.write(struct.pack(">BI", kind, len(payload)))
-    sys.stdout.buffer.write(payload)
-    sys.stdout.buffer.flush()
+    # Chiamata da piu' thread (video, audio, JPEG di ripiego): intestazione e
+    # payload devono uscire insieme, altrimenti i messaggi si mescolano e il
+    # processo principale perde la sincronia del flusso.
+    with _out_lock:
+        out = sys.stdout.buffer
+        out.write(struct.pack(">BI", kind, len(payload)))
+        out.write(payload)
+        out.flush()
 
 
 def _open_virtual_monitor(virtual_display):
@@ -120,15 +130,17 @@ class _VideoSink:
 
 
 def _parse_h264_option(args):
-    """'h264=1920,30,26' -> (larghezza, fps, crf)."""
+    """'h264=1920,30,26[,12000]' -> (larghezza, fps, crf, kbit/s o 0). Con il quarto
+    valore il flusso ha un bitrate costante (CBR) invece della qualita' costante."""
     for token in args:
         if token.startswith("h264="):
-            width, fps, crf = (int(v) for v in token[5:].split(","))
-            return width, fps, crf
+            values = [int(v) for v in token[5:].split(",")]
+            width, fps, crf = values[:3]
+            return width, fps, crf, (values[3] if len(values) > 3 else 0)
     return None
 
 
-def _open_h264(av, geometry, width_limit, fps, crf):
+def _open_h264(av, geometry, width_limit, fps, crf, kbps=0):
     """Codificatore H.264 + muxer MP4 frammentato. Ritorna (container, stream, w, h)."""
     from fractions import Fraction
 
@@ -137,17 +149,28 @@ def _open_h264(av, geometry, width_limit, fps, crf):
     out_h = int(src_h * out_w / src_w)
     out_w -= out_w % 2
     out_h -= out_h % 2
-    gop = max(2, fps // 5)          # un fotogramma chiave ogni ~200 ms: frammenti brevi, bassa latenza
+    gop = max(2, fps // 10)         # un fotogramma chiave ogni ~100 ms: il muxer emette un frammento
+                                    # a ogni chiave, quindi e' anche il ritardo minimo di consegna
 
     container = av.open(
         _VideoSink(), mode="w", format="mp4",
         options={"movflags": "empty_moov+default_base_moof+frag_keyframe"},
     )
-    options = {
-        "preset": "ultrafast", "tune": "zerolatency", "profile": "baseline",
-        "crf": str(crf), "maxrate": "12M", "bufsize": "4M",
-        "x264-params": f"keyint={gop}:min-keyint={gop}:scenecut=0:bframes=0",
-    }
+    params = f"keyint={gop}:min-keyint={gop}:scenecut=0:bframes=0"
+    if kbps:
+        # bitrate costante: la TV tiene da parte una quantita' fissa di BYTE prima di
+        # mostrare, quindi piu' bit al secondo = meno secondi di ritardo, anche con
+        # il desktop fermo (i byte di riempimento li produce l'encoder stesso)
+        options = {
+            "preset": "ultrafast", "tune": "zerolatency", "profile": "baseline",
+            "x264-params": params + f":bitrate={kbps}:vbv-maxrate={kbps}:vbv-bufsize={max(1, kbps // 8)}:nal-hrd=cbr",
+        }
+    else:
+        options = {
+            "preset": "ultrafast", "tune": "zerolatency", "profile": "baseline",
+            "crf": str(crf), "maxrate": "12M", "bufsize": "4M",
+            "x264-params": params,
+        }
     stream = container.add_stream("libx264", rate=Fraction(fps, 1), options=options)
     stream.width, stream.height = out_w, out_h
     stream.pix_fmt = "yuv420p"
@@ -269,6 +292,42 @@ def main():
     return 0
 
 
+_rtc_hub = None      # RtcHub se la sessione e' in modalita' WebRTC
+
+
+def _start_rtc(width, height, with_audio):
+    """Crea l'hub WebRTC e il thread che legge le offerte SDP da stdin."""
+    global _rtc_hub
+    sys.setswitchinterval(0.001)     # il thread WebRTC non deve aspettare 5 ms il GIL: avrebbe jitter
+    try:
+        from streaming.rtc_peer import RtcHub
+        import os
+        _rtc_hub = RtcHub(width, height, log=log, with_audio=with_audio and os.environ.get('CONNEXUS_RTC_AUDIO') != '0')
+    except Exception as e:
+        log(f"WebRTC non disponibile ({type(e).__name__}: {e}): resta il flusso video classico")
+        write_message(MSG_RTC, json.dumps({"ready": False}).encode("utf-8"))
+        return
+
+    def control():
+        for raw in iter(sys.stdin.buffer.readline, b""):
+            try:
+                msg = json.loads(raw.decode("utf-8"))
+                if msg.get("type") != "rtc_offer":
+                    continue
+                try:
+                    answer = _rtc_hub.offer(msg["sdp"], msg.get("sdp_type", "offer"))
+                    reply = {"id": msg["id"], **answer}
+                except Exception as e:
+                    reply = {"id": msg.get("id"), "error": f"{type(e).__name__}: {e}"}
+                write_message(MSG_RTC, json.dumps(reply).encode("utf-8"))
+            except Exception as e:
+                log(f"segnalazione WebRTC: {type(e).__name__}: {e}")
+
+    threading.Thread(target=control, name="rtc-control", daemon=True).start()
+    write_message(MSG_RTC, json.dumps({"ready": True}).encode("utf-8"))
+    log("WebRTC pronto: la TV puo' collegarsi con ritardo minimo")
+
+
 class _AudioMux:
     """Cattura l'audio di sistema (loopback WASAPI), lo porta a 48 kHz stereo e lo
     codifica in AAC dentro lo stesso MP4 del video, con la stessa base dei tempi:
@@ -310,11 +369,14 @@ class _AudioMux:
                 self.q.put_nowait((time.time(), data))
             except Exception:
                 pass
+            hub = _rtc_hub
+            if hub is not None:
+                hub.push_audio(data, self.src_rate, self.channels)
             return (None, pyaudio.paContinue)
 
         self._stream = pa.open(format=pyaudio.paInt16, channels=self.channels, rate=self.src_rate,
                                input=True, input_device_index=dev["index"],
-                               frames_per_buffer=1024, stream_callback=on_audio)
+                               frames_per_buffer=512, stream_callback=on_audio)
         self._pa = pa
         self._thread.start()
         log(f"audio AAC nel flusso: {dev['name']} {self.src_rate} Hz")
@@ -386,9 +448,11 @@ def _run_h264(camera, geometry, h264, jpeg_fps, jpeg_quality, jpeg_width, manage
     import cv2
     import numpy as np
 
-    width_limit, fps, crf = h264
-    container, stream, out_w, out_h = _open_h264(av, geometry, width_limit, fps, crf)
-    log(f"video H.264 {out_w}x{out_h} a {fps} fps (crf {crf})")
+    width_limit, fps, crf, kbps = h264
+    container, stream, out_w, out_h = _open_h264(av, geometry, width_limit, fps, crf, kbps)
+    if "rtc=1" in sys.argv[4:]:
+        _start_rtc(out_w, out_h, with_audio)
+    log(f"video H.264 {out_w}x{out_h} a {fps} fps (" + (f"bitrate costante {kbps} kbit/s" if kbps else f"crf {crf}") + ")")
 
     import threading
     mux_lock = threading.Lock()
@@ -422,8 +486,12 @@ def _run_h264(camera, geometry, h264, jpeg_fps, jpeg_quality, jpeg_width, manage
             if cursor is not None:
                 draw_cursor(frame, cursor, scale, cv2, np)
 
-            if now - last_jpeg >= jpeg_interval:
-                last_jpeg = now
+            hub = _rtc_hub
+            if hub is not None:
+                hub.push_video(frame)
+
+            if now - last_jpeg >= jpeg_interval and not (hub is not None and hub.connected):
+                last_jpeg = now          # (il JPEG di ripiego serve solo se WebRTC non e' collegato)
                 small = frame
                 if out_w > jpeg_width:
                     small = cv2.resize(frame, (jpeg_width, int(out_h * jpeg_width / out_w)),

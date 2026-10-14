@@ -194,13 +194,18 @@
                             <button class="hud-button" id="mouseModePrimary" onclick="setMouseMode('primary')">SOLO SCHERMO 1 (PC)</button>
                             <button class="hud-button" id="mouseModeSecondary" onclick="setMouseMode('secondary')">SOLO SCHERMO 2 (TV)</button>
                         </div>
+                        <div class="hud-eyebrow" style="margin-top:18px;">audio: dove si sente il suono del PC</div>
+                        <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
+                            <button class="hud-button" id="audioRouteTv" onclick="setAudioRoute('tv')">SULLA TV</button>
+                            <button class="hud-button" id="audioRoutePc" onclick="setAudioRoute('pc')">SUL PC</button>
+                        </div>
                         <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
                             <button class="hud-button" id="tvScreenOpenBtn" onclick="tvScreenOpen()">MOSTRA SULLA TV</button>
                             <button class="hud-button danger" id="tvScreenStopBtn" onclick="tvScreenStop()" hidden>SPEGNI SECONDO SCHERMO</button>
                         </div>
                         <div class="hud-mono" style="font-size:11px; color:var(--text-dim); margin-top:14px; line-height:1.6;">
-                            Niente audio sulla TV (il suono resta sul PC) e circa mezzo secondo di ritardo.
-                            Serve il driver Parsec Virtual Display, gia' installato con Parsec.
+                            Con l'audio sulla TV gli altoparlanti del PC vengono silenziati finche' il secondo
+                            schermo e' acceso. Serve il driver Parsec Virtual Display, gia' installato con Parsec.
                         </div>
                     </div>
                     <div class="fz-status" id="tvScreenStatus"></div>

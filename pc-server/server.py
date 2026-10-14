@@ -41,6 +41,7 @@ from remote_input import mouse_guard
 from streaming import screen_stream
 from streaming import tv_screen as tv_screen_module
 from streaming import tv_audio as tv_audio_module
+from streaming import audio_route as audio_route_module
 from core import updater
 from casting import webos_discovery
 from casting import webos_remote
@@ -217,8 +218,7 @@ def handle_command(data, conn_key=None, peer_ip=None):
     elif cmd in ("launch_parsec", "launch_vpn", "apps_get", "apps_set"):
         return handle_external_apps(cmd, data)
     elif cmd == "tvscreen_stop":
-        tv_screen_module.tv_screen.stop()
-        tv_audio_module.tv_audio.stop_all()
+        tv_screen_stop()
         return {"type": "tv_ok", "message": "Secondo schermo fermato"}
     elif cmd == "tvscreen_status":
         return {"type": "tvscreen_status", **tv_screen_status()}
@@ -258,6 +258,10 @@ def handle_command(data, conn_key=None, peer_ip=None):
             }
         except file_browser.FileBrowserError as e:
             return {"type": "fs_error", "message": str(e)}
+    elif cmd in ("tv_audio_route", "tv_audio_route_get"):
+        if cmd == "tv_audio_route":
+            audio_route_module.route.set_route(data.get("route"))
+        return tv_audio_route_reply()
     elif cmd in ("mouse_lock", "mouse_lock_get"):
         if cmd == "mouse_lock":
             if "mode" in data:
@@ -492,6 +496,20 @@ def mouse_lock_reply():
             "mode": mode, "message": message}
 
 
+def tv_audio_route_reply():
+    state = audio_route_module.route.state()
+    message = ("L'audio del PC si sente sulla TV" if state["route"] == audio_route_module.ROUTE_TV
+               else "L'audio resta sul PC")
+    return {"type": "tv_audio_state", "route": state["route"],
+            "pc_muted": state["pc_muted"], "message": message}
+
+
+def tv_screen_stop():
+    tv_screen_module.tv_screen.stop()
+    tv_audio_module.tv_audio.stop_all()
+    audio_route_module.route.session(False)      # gli altoparlanti del PC tornano a suonare
+
+
 def tv_screen_url():
     screen = tv_screen_module.tv_screen
     if not screen.active:
@@ -522,6 +540,7 @@ def tv_screen_start(profile=None):
     except Exception as e:
         log.warning(f"Secondo schermo TV non avviato: {e}")
         return {"ok": False, "error": f"Secondo schermo non avviato: {str(e) or type(e).__name__}"}
+    audio_route_module.route.session(True)
     return {"ok": True, "geometry": geometry}
 
 
@@ -795,6 +814,32 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
             return
         super().do_GET()
 
+    def do_POST(self):
+        """Segnalazione WebRTC: la pagina della TV manda l'offerta SDP, riceve la risposta."""
+        parsed = urlparse(self.path)
+        screen = tv_screen_module.tv_screen
+        key = parse_qs(parsed.query).get("k", [None])[0]
+        if parsed.path != "/tvrtc" or not screen.check_key(key):
+            self.send_error(403, "Non consentito")
+            return
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            if length <= 0 or length > 256 * 1024:
+                raise ValueError("richiesta non valida")
+            offer = json.loads(self.rfile.read(length).decode("utf-8"))
+            answer = screen.rtc_offer(offer["sdp"], offer.get("type", "offer"))
+        except Exception as e:
+            log.warning(f"WebRTC: segnalazione non riuscita: {type(e).__name__}: {e}")
+            self.send_error(503, "WebRTC non disponibile")
+            return
+        body = json.dumps(answer).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
     def _serve_tv_video(self):
         """Flusso MP4 frammentato H.264 per Media Source: segmento iniziale, poi
         i frammenti man mano che nascono (partendo dal successivo al collegamento)."""
@@ -875,12 +920,23 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
             return
+        if parsed.path == "/tvstate":
+            body = json.dumps({"route": audio_route_module.route.route,
+                               "rtc": screen.rtc_enabled}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if parsed.path == "/tvvideo.info":
             init = screen.wait_video_init(timeout=10)
             if init is None:
                 self.send_error(503, "Video non disponibile")
                 return
-            body = json.dumps({"codec": screen.codec, "audio": "mp4a" in (screen.codec or "")}).encode()
+            body = json.dumps({"codec": screen.codec, "audio": "mp4a" in (screen.codec or ""),
+                               "route": audio_route_module.route.route}).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
@@ -933,7 +989,8 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
             # frequenza dell'audio nota prima di aprire la pagina (la cattura parte al primo ascoltatore)
             rate = tv_audio_module.tv_audio.rate or 48000
             body = (tv_screen_module.VIEWER_PAGE.replace("__KEY__", key)
-                    .replace("__RATE__", str(rate))).encode("utf-8")
+                    .replace("__RATE__", str(rate))
+                    .replace("__RTC__", "1" if screen.rtc_enabled else "0")).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -1654,6 +1711,8 @@ def collect_dashboard_status():
         "tvscreen_viewers": tv_screen_module.tv_screen.viewers,
         "tvscreen_profile": tv_screen_module.tv_screen.profile,
         "tvaudio_listeners": tv_audio_module.tv_audio.listeners,
+        "tv_audio_route": audio_route_module.route.route,
+        "tv_audio_pc_muted": audio_route_module.route.pc_muted_by_us,
         "app_version": updater.APP_VERSION,
         "update_progress": updater.get_progress(),
     }
@@ -1740,9 +1799,11 @@ def handle_dashboard_action(action, payload):
     if action == "tvscreen_start":
         return tv_screen_start(payload.get("profile"))
     if action == "tvscreen_stop":
-        tv_screen_module.tv_screen.stop()
-        tv_audio_module.tv_audio.stop_all()
+        tv_screen_stop()
         return {"ok": True}
+    if action == "tv_audio_route":
+        audio_route_module.route.set_route(payload.get("route"))
+        return {"ok": True, **tv_audio_route_reply()}
     if action == "paths_get":
         return {"ok": True, **ui_state.get_paths()}
     if action == "paths_set":
@@ -1761,6 +1822,7 @@ def handle_dashboard_action(action, payload):
 async def main():
     global _main_loop
     _main_loop = asyncio.get_running_loop()
+    await asyncio.to_thread(audio_route_module.route.restore_leftover)
     print("=" * 60, flush=True)
     print("  TOKEN DI ACCESSO (da inserire una volta nell'app):", flush=True)
     print(f"  {auth.TOKEN}", flush=True)

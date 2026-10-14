@@ -18,7 +18,7 @@ log = logging.getLogger("hub-server")
 # meno ritardo. "fluido" e' il predefinito, "nitido" e' per immagini ferme.
 PROFILES = {
     # video H.264 decodificato dal chip della TV (consigliato); JPEG a 1280 px come ripiego
-    "video": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1920, 30, 26), "audio": True},
+    "video": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1920, 30, 26), "audio": True, "rtc": True},
     "videosolo": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1920, 30, 26)},
     "video720": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1280, 30, 26)},
     "video24": {"fps": 15, "quality": 60, "max_width": 1280, "h264": (1280, 24, 26)},
@@ -92,6 +92,8 @@ class TvScreen:
         self.codec = None
         self._video_subs = []
         self._assembler = None
+        self._last_fragment = 0.0
+        self._watchdog_started = False
 
     # --- stato ---
 
@@ -143,19 +145,50 @@ class TvScreen:
             cfg = PROFILES[profile]
             streamer = ScreenStreamer(target_fps=cfg["fps"], jpeg_quality=cfg["quality"],
                                       max_width=cfg["max_width"], virtual=True,
-                                      h264=cfg.get("h264"), audio=bool(cfg.get("audio")))
+                                      h264=cfg.get("h264"), audio=bool(cfg.get("audio")),
+                                      rtc=bool(cfg.get("rtc")))
             self._video_init = None
             self.codec = None
             self._assembler = Fmp4Assembler(self._on_video_init, self._on_video_fragment) \
                 if cfg.get("h264") else None
+            import time
+            self._last_fragment = time.time()
             streamer.start(self._on_frame, self._on_video if self._assembler else None)
             self._streamer = streamer
             self._profile = profile
             if not self._key:
                 self._key = secrets.token_urlsafe(12)
             self._latest = None
+            if not self._watchdog_started:
+                self._watchdog_started = True
+                threading.Thread(target=self._watchdog, daemon=True).start()
             log.info(f"Secondo schermo TV attivo (profilo {profile})")
             return streamer.geometry
+
+    def _watchdog(self):
+        """Se il video smette di arrivare dalla cattura (processo bloccato o flusso
+        corrotto) riavvia la cattura da sola, con la stessa chiave: la TV riprende
+        senza che nessuno debba intervenire."""
+        import time
+        while True:
+            time.sleep(2)
+            streamer = self._streamer
+            if streamer is None or self._assembler is None:
+                continue
+            stuck = time.time() - self._last_fragment > 8
+            if not (stuck or streamer.reader_ended):
+                continue
+            log.warning("Flusso video fermo: riavvio la cattura")
+            try:
+                profile = self._profile
+                with self._lock:
+                    old, self._streamer = self._streamer, None
+                if old is not None:
+                    old.stop()
+                self.start(profile)
+            except Exception as e:
+                log.warning(f"Riavvio della cattura non riuscito: {type(e).__name__}: {e}")
+                time.sleep(5)
 
     def stop(self):
         with self._lock:
@@ -187,6 +220,8 @@ class TvScreen:
         log.info(f"Video H.264 pronto per la TV ({codec})")
 
     def _on_video_fragment(self, fragment):
+        import time
+        self._last_fragment = time.time()
         for q in list(self._video_subs):
             try:
                 q.put_nowait(fragment)
@@ -196,6 +231,17 @@ class TvScreen:
                     q.put_nowait(fragment)
                 except Exception:
                     pass
+
+    @property
+    def rtc_enabled(self):
+        streamer = self._streamer
+        return bool(streamer is not None and streamer.wait_rtc_ready())
+
+    def rtc_offer(self, sdp, sdp_type):
+        streamer = self._streamer
+        if streamer is None:
+            raise RuntimeError("secondo schermo non attivo")
+        return streamer.rtc_offer(sdp, sdp_type)
 
     @property
     def video_ready(self):
@@ -293,7 +339,7 @@ img.native{margin:auto;width:auto;height:auto;max-width:100%;max-height:100%}
 <div id="hint" class="note" style="bottom:60px;display:block;color:#fff;background:rgba(0,0,0,.55);width:max-content;margin:auto;padding:6px 14px">Premi OK sul telecomando per lo schermo intero</div>
 <script>setTimeout(function(){ var h = document.getElementById("hint"); if (h) h.style.display = "none"; }, 8000);</script>
 <script>
-var KEY = "__KEY__", RATE = __RATE__;
+var KEY = "__KEY__", RATE = __RATE__, RTC_ENABLED = "__RTC__";
 var img = document.getElementById("s"), msg = document.getElementById("msg");
 var aud = document.getElementById("aud"), delayBox = document.getElementById("delay");
 
@@ -310,15 +356,24 @@ function pullDirect(){
   img.src = "/tvframe.jpg?k=" + KEY + "&d=1&t=" + Date.now();
 }
 
-/* video H.264 con Media Source: il chip della TV lo decodifica */
-var RATECTL = location.search.indexOf("r=1") >= 0, trimmed = false, TRIM = location.search.indexOf("trim=1") >= 0;
+/* video H.264: WebRTC (ritardo ~0,1 s); se non parte, Media Source (~1 s: e' la soglia di
+   questa TV prima di mostrare il video) e, in ultimo, immagini JPEG */
+var RATECTL = location.search.indexOf("r=1") >= 0;
 var EMBEDDED_AUDIO = false;
 function stopWebAudio(){ NOAUDIO = true; }
-var usedFallback = false, seeks = 0, waits = 0, lastT = 0, lastTotal = 0, lastDrop = 0, tick = 0;
+var usedFallback = false, seeks = 0, waits = 0, lastT = 0, lastTotal = 0, lastDrop = 0, tick = 0, rxBytes = 0, lastRx = 0;
 function fallback(why){
   if (usedFallback) return;
   usedFallback = true; tvlog("ripiego JPEG: " + why); pullDirect();
 }
+
+/* l'app puo' spostare l'audio: "pc" = la TV non lo riproduce (resta sugli altoparlanti del PC) */
+setInterval(function(){
+  fetch("/tvstate?k=" + KEY).then(function(r){ return r.json(); }).then(function(i){
+    if (EMBEDDED_AUDIO) video.muted = (i.route === "pc");
+  }).catch(function(){});
+}, 2500);
+
 function startMse(){
   if (!window.MediaSource || !window.fetch) return fallback("MediaSource/fetch non disponibili");
   fetch("/tvvideo.info?k=" + KEY).then(function(r){ return r.json(); }).then(function(info){
@@ -354,6 +409,7 @@ function startMse(){
           reader.read().then(function(r){
             if (r.done){ tvlog("flusso video chiuso"); setTimeout(function(){ location.reload(); }, 1500); return; }
             if (!gotData){ gotData = true; tvlog("primi dati video"); }
+            rxBytes += r.value.length;
             queue.push(r.value); pumpQueue(); pump();
           }).catch(function(e){ tvlog("lettura: " + e); setTimeout(function(){ location.reload(); }, 2000); });
         })();
@@ -368,7 +424,6 @@ function startMse(){
         if (bb.length){
           var ahead = bb.end(bb.length - 1) - video.currentTime;
           if (ahead > 2.0){ video.currentTime = bb.end(bb.length - 1) - 0.3; seeks++; }
-          else if (!trimmed && tick > 3 && ahead > 0.6 && TRIM){ trimmed = true; video.currentTime = bb.end(bb.length - 1) - 0.35; seeks++; }
           else if (RATECTL && ahead > 0.6 && video.playbackRate !== 1.1) video.playbackRate = 1.1;     /* recupera piano piano */
           else if (RATECTL && ahead < 0.35 && video.playbackRate !== 1.0) video.playbackRate = 1.0;
         }
@@ -384,11 +439,84 @@ function startMse(){
         var ahead = video.buffered.length ? (video.buffered.end(video.buffered.length - 1) - video.currentTime) : -1;
         tvlog("t+" + tick + "s avanza " + (video.currentTime - lastT).toFixed(2) + "s/2s, fotogrammi " + (total - lastTotal) +
               ", scartati " + (drop - lastDrop) + ", buffer " + ahead.toFixed(2) + "s, rs " + video.readyState +
-              ", salti " + seeks + ", attese " + waits + ", " + video.videoWidth + "x" + video.videoHeight);
-        lastT = video.currentTime; lastTotal = total; lastDrop = drop;
+              ", salti " + seeks + ", attese " + waits + ", " + video.videoWidth + "x" + video.videoHeight +
+              ", " + Math.round((rxBytes - lastRx) * 8 / 2000) + " kbit/s");
+        lastT = video.currentTime; lastTotal = total; lastDrop = drop; lastRx = rxBytes;
       }
     }, 1000);
   }).catch(function(e){ fallback("info: " + e); });
+}
+
+/* WebRTC: video e audio arrivano come una chiamata, senza la soglia di 1 s del lettore */
+function startRtc(){
+  var pc = null, done = false, shown = false;
+  function toMse(why){
+    if (done) return;
+    done = true;
+    tvlog("WebRTC non riuscito (" + why + "): uso il video classico");
+    try { pc.close(); } catch (e) {}
+    video.srcObject = null;
+    startMse();
+  }
+  try { pc = new RTCPeerConnection({iceServers: []}); } catch (e) { return startMse(); }
+  tvlog("browser: " + navigator.userAgent);
+  pc.addTransceiver("video", {direction: "recvonly"});
+  pc.addTransceiver("audio", {direction: "recvonly"});
+  pc.ontrack = function(e){
+    if (!video.srcObject) video.srcObject = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream();
+    if (!e.streams || !e.streams[0]) video.srcObject.addTrack(e.track);
+    video.style.display = "block"; img.style.display = "none";
+    EMBEDDED_AUDIO = true; video.muted = false; video.volume = 1; stopWebAudio();
+    var pr = video.play(); if (pr && pr.catch) pr.catch(function(){});
+  };
+  pc.onconnectionstatechange = function(){
+    tvlog("WebRTC: " + pc.connectionState);
+    if (done) return;
+    if (pc.connectionState === "failed"){ if (shown) location.reload(); else toMse("collegamento fallito"); }
+    if (pc.connectionState === "disconnected") setTimeout(function(){
+      if (!done && pc.connectionState !== "connected"){ if (shown) location.reload(); else toMse("scollegato"); }
+    }, 4000);
+  };
+  pc.createOffer().then(function(o){ return pc.setLocalDescription(o); }).then(function(){
+    return new Promise(function(res){
+      if (pc.iceGatheringState === "complete") return res();
+      pc.onicegatheringstatechange = function(){ if (pc.iceGatheringState === "complete") res(); };
+      setTimeout(res, 1500);
+    });
+  }).then(function(){
+    return fetch("/tvrtc?k=" + KEY, {method: "POST", body: JSON.stringify({sdp: pc.localDescription.sdp, type: pc.localDescription.type})});
+  }).then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(function(a){ return pc.setRemoteDescription(a); })
+    .catch(function(e){ toMse("segnalazione: " + e); });
+
+  var lastFrames = 0, ticks = 0;
+  var timer = setInterval(function(){
+    if (done){ clearInterval(timer); return; }
+    ticks++;
+    var q = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality() : null;
+    var total = q ? q.totalVideoFrames : (video.webkitDecodedFrameCount || 0);
+    frames = total - lastFrames;
+    if (total > 0) shown = true;
+    if (!shown && ticks >= 8){ toMse("nessun fotogramma in 8 s"); return; }
+    if (ticks % 4 === 0){
+      var line = "rtc t+" + ticks + "s fotogrammi " + total + " totali";
+      try {
+        pc.getStats(function(r){
+          var vtxt = "", atxt = "";
+          r.result().forEach(function(x){
+            if (x.type !== "ssrc") return;
+            if (x.stat("googFrameWidthReceived"))
+              vtxt = ", video: ritardo di riproduzione " + x.stat("googCurrentDelayMs") + " ms (buffer " + x.stat("googJitterBufferMs") +
+                     " ms), " + x.stat("googFrameWidthReceived") + "x" + x.stat("googFrameHeightReceived") + " a " + x.stat("googFrameRateReceived") + " fps";
+            else if (x.stat("audioOutputLevel") !== undefined || x.stat("googJitterReceived") !== undefined)
+              atxt = ", audio: ritardo " + x.stat("googCurrentDelayMs") + " ms (buffer " + x.stat("googJitterBufferMs") + " ms)";
+          });
+          tvlog(line + vtxt + atxt);
+        });
+      } catch (e) { tvlog(line); }
+    }
+    lastFrames = total;
+  }, 1000);
 }
 
 var MODE = (location.search.match(/[?&]m=([0-9a-z]+)/) || [0, "v"])[1];
@@ -396,7 +524,9 @@ setInterval(function(){
   if (dbg){ delayBox.textContent = frames + " fps" + (MODE === "j" ? " (JPEG)" : ""); delayBox.style.display = "block"; }
   if (MODE === "j") frames = 0;
 }, 1000);
-if (MODE === "j") pullDirect(); else startMse();
+if (MODE === "j") pullDirect();
+else if (MODE === "m" || !window.RTCPeerConnection || RTC_ENABLED !== "1") startMse();
+else startRtc();
 
 /* ---- audio (Web Audio: PCM 16 bit stereo dal PC) ---- */
 var ctx = null, nextTime = 0, delay = 0.95, carry = null;   /* il video ha ~1 s di ritardo (buffer della TV): l'audio lo segue */

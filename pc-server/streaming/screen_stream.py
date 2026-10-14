@@ -30,14 +30,22 @@ mouse = MouseController()
 MSG_GEOMETRY = 1
 MSG_FRAME = 2
 MSG_VIDEO = 3
+MSG_RTC = 4
 
 
 class ScreenStreamer:
     """Supervisiona il processo figlio che possiede monitor virtuale e cattura."""
 
-    def __init__(self, target_fps=20, jpeg_quality=85, max_width=1920, virtual=False, h264=None, audio=False):
+    def __init__(self, target_fps=20, jpeg_quality=85, max_width=1920, virtual=False, h264=None, audio=False,
+                 rtc=False):
         self.virtual = virtual
         self.audio = audio
+        self.rtc = rtc                # WebRTC verso la TV (oltre al flusso video classico)
+        self._rtc_lock = threading.Lock()
+        self._rtc_seq = 0
+        self._rtc_waiters = {}
+        self._rtc_ready = threading.Event()   # il processo di cattura ha risposto sul WebRTC
+        self.rtc_usable = False               # ...e puo' usarlo
         self.h264 = h264          # (larghezza, fps, crf) oppure None
         self._on_video = None
         self.target_fps = target_fps
@@ -46,6 +54,7 @@ class ScreenStreamer:
 
         self._process = None
         self._reader = None
+        self.reader_ended = False
         self._geometry = None
         self._geometry_ready = threading.Event()
         self._on_frame = None
@@ -60,6 +69,9 @@ class ScreenStreamer:
         self._on_frame = on_frame
         self._on_video = on_video
         self._geometry = None
+        self.reader_ended = False
+        self._rtc_ready.clear()
+        self.rtc_usable = False
         self._geometry_ready.clear()
 
         # Pacchettizzato (PyInstaller): non esiste un python.exe a cui passare
@@ -68,9 +80,11 @@ class ScreenStreamer:
         # dell'app (stesso bundle, stessi moduli gia' inclusi).
         extra = ["virtual"] if self.virtual else []
         if self.h264 is not None:
-            extra.append("h264=%d,%d,%d" % tuple(self.h264))
+            extra.append("h264=" + ",".join(str(int(v)) for v in self.h264))
             if self.audio:
                 extra.append("audio=1")
+            if self.rtc:
+                extra.append("rtc=1")
         if getattr(sys, "frozen", False):
             args = [sys.executable, "--capture-process", str(self.target_fps),
                      str(self.jpeg_quality), str(self.max_width)] + extra
@@ -81,6 +95,7 @@ class ScreenStreamer:
         self._process = subprocess.Popen(
             args,
             cwd=str(app_dir()),
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             bufsize=0,
@@ -110,6 +125,8 @@ class ScreenStreamer:
             if len(header) < 5:
                 return
             kind, length = struct.unpack(">BI", header)
+            if kind not in (MSG_GEOMETRY, MSG_FRAME, MSG_VIDEO, MSG_RTC) or length > 64 * 1024 * 1024:
+                raise ValueError(f"flusso dalla cattura fuori sincronia (tipo {kind}, lunghezza {length})")
             payload = stdout.read(length)
             if len(payload) < length:
                 return
@@ -121,15 +138,59 @@ class ScreenStreamer:
                 self._on_frame(payload)
             elif kind == MSG_VIDEO and self._on_video is not None:
                 self._on_video(payload)
+            elif kind == MSG_RTC:
+                try:
+                    reply = json.loads(payload.decode("utf-8"))
+                    if "ready" in reply:
+                        self.rtc_usable = bool(reply["ready"])
+                        self._rtc_ready.set()
+                    else:
+                        waiter = self._rtc_waiters.get(reply.get("id"))
+                        if waiter is not None:
+                            waiter[1] = reply
+                            waiter[0].set()
+                except Exception:
+                    pass
 
     def _read_loop(self):
         try:
             self._read_frames(self._process.stdout)
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning(f"Lettura dalla cattura interrotta: {type(e).__name__}: {e}")
         finally:
+            self.reader_ended = True
             # Se il figlio muore da solo, sblocchiamo chi attende la geometria.
             self._geometry_ready.set()
+
+    def wait_rtc_ready(self, timeout=3.0):
+        """True se la cattura ha il WebRTC pronto (attende un attimo se e' appena partita)."""
+        if not self.rtc:
+            return False
+        self._rtc_ready.wait(timeout)
+        return self.rtc_usable
+
+    def rtc_offer(self, sdp, sdp_type, timeout=15):
+        """Gira l'offerta SDP della TV al processo di cattura e ritorna la risposta."""
+        process = self._process
+        if process is None or process.stdin is None or not self.rtc:
+            raise RuntimeError("WebRTC non attivo")
+        with self._rtc_lock:
+            self._rtc_seq += 1
+            rid = self._rtc_seq
+            waiter = [threading.Event(), None]
+            self._rtc_waiters[rid] = waiter
+            line = json.dumps({"type": "rtc_offer", "id": rid, "sdp": sdp, "sdp_type": sdp_type}) + "\n"
+            process.stdin.write(line.encode("utf-8"))
+            process.stdin.flush()
+        try:
+            if not waiter[0].wait(timeout):
+                raise TimeoutError("nessuna risposta WebRTC dalla cattura")
+        finally:
+            self._rtc_waiters.pop(rid, None)
+        reply = waiter[1]
+        if "error" in reply:
+            raise RuntimeError(reply["error"])
+        return {"sdp": reply["sdp"], "type": reply["type"]}
 
     def _log_stderr(self):
         process = self._process

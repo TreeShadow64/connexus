@@ -730,6 +730,37 @@
                         android:layout_weight="1"
                         android:text="SOLO TV" />
                 </LinearLayout>
+
+                <TextView
+                    android:id="@+id/textScreenAudio"
+                    style="@style/Text.Hud.Eyebrow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="audio: si sente sulla TV" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/buttonScreenAudioTv"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:text="SULLA TV" />
+
+                    <Button
+                        android:id="@+id/buttonScreenAudioPc"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:text="SUL PC" />
+                </LinearLayout>
             </LinearLayout>
 
             <LinearLayout

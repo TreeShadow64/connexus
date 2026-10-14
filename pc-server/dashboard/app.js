@@ -259,6 +259,7 @@ function showTvSubview(name) {
 
 function updateTvScreenUI(status) {
     updateMouseUI(status.mouse_mode || "free");
+    updateAudioRouteUI(status.tv_audio_route || "tv");
     const on = !!status.tvscreen_active;
     document.getElementById("tvScreenState").textContent = on
         ? `acceso · ${status.tvscreen_viewers > 0 ? "la TV lo sta guardando" : "in attesa della TV"}`
@@ -284,6 +285,25 @@ async function setMouseMode(mode) {
     const result = await runAction("mouse_confine", { mode });
     status.textContent = result.message || result.error || "Errore";
     updateMouseUI(result.mode || mode);
+}
+
+const AUDIO_BUTTONS = { tv: "audioRouteTv", pc: "audioRoutePc" };
+
+function updateAudioRouteUI(route) {
+    Object.keys(AUDIO_BUTTONS).forEach(r => {
+        const el = document.getElementById(AUDIO_BUTTONS[r]);
+        if (!el) return;
+        el.classList.toggle("active", r === route);
+        el.style.borderColor = r === route ? "var(--cyan-glow)" : "";
+        el.style.boxShadow = r === route ? "0 0 10px rgba(111,227,255,.45)" : "";
+    });
+}
+
+async function setAudioRoute(route) {
+    const status = document.getElementById("tvScreenStatus");
+    const result = await runAction("tv_audio_route", { route });
+    status.textContent = result.message || result.error || "Errore";
+    updateAudioRouteUI(result.route || route);
 }
 
 async function tvScreenOpen() {
