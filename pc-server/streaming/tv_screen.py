@@ -94,6 +94,7 @@ class TvScreen:
         self._assembler = None
         self._last_fragment = 0.0
         self._watchdog_started = False
+        self._audio_route = "tv"
 
     # --- stato ---
 
@@ -156,6 +157,8 @@ class TvScreen:
             streamer.start(self._on_frame, self._on_video if self._assembler else None)
             self._streamer = streamer
             self._profile = profile
+            if streamer.rtc:
+                streamer.send_control({"type": "audio_route", "route": self._audio_route})
             if not self._key:
                 self._key = secrets.token_urlsafe(12)
             self._latest = None
@@ -231,6 +234,13 @@ class TvScreen:
                     q.put_nowait(fragment)
                 except Exception:
                     pass
+
+    def set_audio_route(self, route):
+        """'tv' = l'audio viaggia con il video; 'pc' = resta sul PC (la TV non lo riceve)."""
+        self._audio_route = "pc" if route == "pc" else "tv"
+        streamer = self._streamer
+        if streamer is not None and streamer.rtc:
+            streamer.send_control({"type": "audio_route", "route": self._audio_route})
 
     @property
     def rtc_enabled(self):
@@ -367,10 +377,15 @@ function fallback(why){
   usedFallback = true; tvlog("ripiego JPEG: " + why); pullDirect();
 }
 
-/* l'app puo' spostare l'audio: "pc" = la TV non lo riproduce (resta sugli altoparlanti del PC) */
+/* l'app puo' spostare l'audio: "pc" = la TV non lo riceve (resta sugli altoparlanti del PC).
+   Con WebRTC il lettore allinea il video all'audio (~225 ms di uscita audio della TV) e non
+   torna indietro da solo: al cambio si ricollega, cosi' senza audio il video resta a ~30 ms. */
+var RTC_ACTIVE = false, lastRoute = null;
 setInterval(function(){
   fetch("/tvstate?k=" + KEY).then(function(r){ return r.json(); }).then(function(i){
     if (EMBEDDED_AUDIO) video.muted = (i.route === "pc");
+    if (RTC_ACTIVE && lastRoute !== null && i.route !== lastRoute) { location.reload(); return; }
+    lastRoute = i.route;
   }).catch(function(){});
 }, 2500);
 
@@ -453,6 +468,7 @@ function startRtc(){
   function toMse(why){
     if (done) return;
     done = true;
+    RTC_ACTIVE = false;
     tvlog("WebRTC non riuscito (" + why + "): uso il video classico");
     try { pc.close(); } catch (e) {}
     video.srcObject = null;
@@ -471,6 +487,7 @@ function startRtc(){
   };
   pc.onconnectionstatechange = function(){
     tvlog("WebRTC: " + pc.connectionState);
+    if (pc.connectionState === "connected") RTC_ACTIVE = true;
     if (done) return;
     if (pc.connectionState === "failed"){ if (shown) location.reload(); else toMse("collegamento fallito"); }
     if (pc.connectionState === "disconnected") setTimeout(function(){

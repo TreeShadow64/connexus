@@ -261,6 +261,7 @@ def handle_command(data, conn_key=None, peer_ip=None):
     elif cmd in ("tv_audio_route", "tv_audio_route_get"):
         if cmd == "tv_audio_route":
             audio_route_module.route.set_route(data.get("route"))
+            tv_screen_module.tv_screen.set_audio_route(audio_route_module.route.route)
         return tv_audio_route_reply()
     elif cmd in ("mouse_lock", "mouse_lock_get"):
         if cmd == "mouse_lock":
@@ -540,6 +541,7 @@ def tv_screen_start(profile=None):
     except Exception as e:
         log.warning(f"Secondo schermo TV non avviato: {e}")
         return {"ok": False, "error": f"Secondo schermo non avviato: {str(e) or type(e).__name__}"}
+    tv_screen_module.tv_screen.set_audio_route(audio_route_module.route.route)
     audio_route_module.route.session(True)
     return {"ok": True, "geometry": geometry}
 
@@ -809,7 +811,7 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/fs/download"):
             self._serve_download()
             return
-        if self.path.startswith(("/tvscreen", "/tvaudio", "/tvframe", "/tvvideo", "/tvlog")):
+        if self.path.startswith(("/tvscreen", "/tvaudio", "/tvframe", "/tvvideo", "/tvlog", "/tvstate")):
             self._serve_tv_screen()
             return
         super().do_GET()
@@ -1803,6 +1805,7 @@ def handle_dashboard_action(action, payload):
         return {"ok": True}
     if action == "tv_audio_route":
         audio_route_module.route.set_route(payload.get("route"))
+        tv_screen_module.tv_screen.set_audio_route(audio_route_module.route.route)
         return {"ok": True, **tv_audio_route_reply()}
     if action == "paths_get":
         return {"ok": True, **ui_state.get_paths()}

@@ -162,6 +162,19 @@ class ScreenStreamer:
             # Se il figlio muore da solo, sblocchiamo chi attende la geometria.
             self._geometry_ready.set()
 
+    def send_control(self, message):
+        """Comando JSON al processo di cattura (una riga su stdin)."""
+        process = self._process
+        if process is None or process.stdin is None:
+            return False
+        try:
+            with self._rtc_lock:
+                process.stdin.write((json.dumps(message) + "\n").encode("utf-8"))
+                process.stdin.flush()
+            return True
+        except (OSError, ValueError):
+            return False
+
     def wait_rtc_ready(self, timeout=3.0):
         """True se la cattura ha il WebRTC pronto (attende un attimo se e' appena partita)."""
         if not self.rtc:

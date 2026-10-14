@@ -302,7 +302,10 @@ def _start_rtc(width, height, with_audio):
     try:
         from streaming.rtc_peer import RtcHub
         import os
-        _rtc_hub = RtcHub(width, height, log=log, with_audio=with_audio and os.environ.get('CONNEXUS_RTC_AUDIO') != '0')
+        _rtc_hub = RtcHub(width, height, log=log,
+                          with_audio=with_audio and os.environ.get('CONNEXUS_RTC_AUDIO') != '0',
+                          crf=int(os.environ.get('CONNEXUS_RTC_CRF', '26')),
+                          maxrate_kbps=int(os.environ.get('CONNEXUS_RTC_MAXRATE', '5000')))
     except Exception as e:
         log(f"WebRTC non disponibile ({type(e).__name__}: {e}): resta il flusso video classico")
         write_message(MSG_RTC, json.dumps({"ready": False}).encode("utf-8"))
@@ -312,6 +315,10 @@ def _start_rtc(width, height, with_audio):
         for raw in iter(sys.stdin.buffer.readline, b""):
             try:
                 msg = json.loads(raw.decode("utf-8"))
+                if msg.get("type") == "audio_route":
+                    _rtc_hub.audio_enabled = msg.get("route") != "pc"
+                    log("audio verso la TV: " + ("attivo" if _rtc_hub.audio_enabled else "spento (resta sul PC)"))
+                    continue
                 if msg.get("type") != "rtc_offer":
                     continue
                 try:

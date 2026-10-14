@@ -65,11 +65,12 @@ def _patch_h264_encoder(crf, maxrate_kbps):
 
 
 class RtcHub:
-    def __init__(self, width, height, log=None, crf=24, maxrate_kbps=12000, with_audio=True):
+    def __init__(self, width, height, log=None, crf=26, maxrate_kbps=5000, with_audio=True):
         _patch_h264_encoder(crf, maxrate_kbps)
         self.width, self.height = width, height
         self._log = log or (lambda message: None)
         self._with_audio = with_audio
+        self.audio_enabled = True      # False = l'audio resta sul PC: nessun pacchetto audio verso la TV
         self._latest = None
         self._frame_lock = threading.Lock()
         self._audio = bytearray()
@@ -96,7 +97,7 @@ class RtcHub:
 
     def push_audio(self, data, rate, channels):
         """PCM s16 interlacciato dalla cattura 'loopback' di Windows."""
-        if not self._with_audio or not self.connected:
+        if not self._with_audio or not self.connected or not self.audio_enabled:
             return
         try:
             import av
@@ -169,6 +170,15 @@ class RtcHub:
             async def recv(self):
                 if self._start is None:
                     self._start = time.time()
+                # Audio sul PC: la TV non riceve pacchetti audio. Senza audio il lettore
+                # della TV non deve allineare il video a lui (~225 ms di uscita audio)
+                # e il video resta a ~30 ms. Alla ripresa la linea del tempo salta al presente.
+                resumed = False
+                while not hub.audio_enabled:
+                    await asyncio.sleep(0.05)
+                    resumed = True
+                if resumed:
+                    self._count = int((time.time() - self._start) * AUDIO_RATE) // AUDIO_FRAME * AUDIO_FRAME
                 wait = self._start + (self._count + AUDIO_FRAME) / AUDIO_RATE - time.time()
                 if wait > 0:
                     await asyncio.sleep(wait)
