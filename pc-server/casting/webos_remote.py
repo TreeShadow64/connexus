@@ -230,6 +230,72 @@ async def switch_input(tv_ip, client_key, input_id, timeout=8):
     )
 
 
+class PointerSession:
+    """Collegamento al puntatore della TV (quello del Magic Remote) tenuto aperto:
+    aprirne uno nuovo a ogni movimento sarebbe troppo lento per seguire un dito o un mouse."""
+
+    def __init__(self):
+        self._ws = None
+        self._ip = None
+        self._lock = None
+
+    async def _open(self, tv_ip, client_key, timeout=5):
+        ws = await _connect(tv_ip)
+        try:
+            reg_payload = {**REGISTER_PAYLOAD, "client-key": client_key}
+            await ws.send(json.dumps({"type": "register", "id": "register_0", "payload": reg_payload}))
+            msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=timeout))
+            if msg.get("type") != "registered":
+                raise WebOSError("Registrazione rifiutata, l'abbinamento potrebbe essere scaduto")
+            await ws.send(json.dumps({
+                "type": "request", "id": "pointer_0",
+                "uri": "ssap://com.webos.service.networkinput/getPointerInputSocket", "payload": {},
+            }))
+            msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=timeout))
+            path = msg.get("payload", {}).get("socketPath")
+            if not path:
+                raise WebOSError("Impossibile ottenere il socket del puntatore")
+        finally:
+            await ws.close()
+        return await asyncio.wait_for(websockets.connect(path, max_size=None), timeout=timeout)
+
+    async def send(self, tv_ip, client_key, text):
+        if not client_key:
+            raise WebOSError("TV non ancora abbinata: usa prima 'ABBINA TV'")
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        async with self._lock:
+            for attempt in (1, 2):
+                try:
+                    if self._ws is None or self._ip != tv_ip:
+                        await self.close()
+                        self._ws = await self._open(tv_ip, client_key)
+                        self._ip = tv_ip
+                    await self._ws.send(text)
+                    return
+                except Exception:
+                    await self.close()           # collegamento caduto: un secondo tentativo da zero
+                    if attempt == 2:
+                        raise
+
+    async def move(self, tv_ip, client_key, dx, dy):
+        await self.send(tv_ip, client_key, f"type:move\ndx:{int(dx)}\ndy:{int(dy)}\ndown:0\n\n")
+
+    async def click(self, tv_ip, client_key):
+        await self.send(tv_ip, client_key, "type:click\n\n")
+
+    async def scroll(self, tv_ip, client_key, dy):
+        await self.send(tv_ip, client_key, f"type:scroll\ndx:0\ndy:{int(dy)}\n\n")
+
+    async def close(self):
+        ws, self._ws = self._ws, None
+        if ws is not None:
+            try:
+                await ws.close()
+            except Exception:
+                pass
+
+
 async def send_button(tv_ip, client_key, button_name, timeout=5):
     """Invia una pressione di tasto (D-pad, HOME, BACK, ecc.) tramite il pointer input socket."""
     if not client_key:

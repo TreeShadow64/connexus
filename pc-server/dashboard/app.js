@@ -255,6 +255,35 @@ function showTvSubview(name) {
     }
 }
 
+// ---------- mouse sulla TV (puntatore del Magic Remote) ----------
+
+document.addEventListener("DOMContentLoaded", () => {
+    const pad = document.getElementById("tvTouchpad");
+    if (!pad) return;
+    let last = null, ax = 0, ay = 0, timer = null, busy = false;
+    const flush = async () => {
+        timer = null;
+        const dx = Math.round(ax), dy = Math.round(ay);
+        if (!dx && !dy) return;
+        if (busy) { timer = setTimeout(flush, 20); return; }
+        ax -= dx; ay -= dy;
+        busy = true;
+        await runAction("tv_pointer", { kind: "move", dx, dy });
+        busy = false;
+    };
+    pad.addEventListener("mousemove", e => {
+        if (last) { ax += (e.clientX - last.x) * 2.2; ay += (e.clientY - last.y) * 2.2; }
+        last = { x: e.clientX, y: e.clientY };
+        if (!timer) timer = setTimeout(flush, 33);
+    });
+    pad.addEventListener("mouseleave", () => { last = null; });
+    pad.addEventListener("click", () => runAction("tv_pointer", { kind: "click" }));
+    pad.addEventListener("wheel", e => {
+        e.preventDefault();
+        runAction("tv_pointer", { kind: "scroll", dy: Math.round(-e.deltaY / 4) });
+    }, { passive: false });
+});
+
 // ---------- secondo schermo sulla TV ----------
 
 function updateTvScreenUI(status) {

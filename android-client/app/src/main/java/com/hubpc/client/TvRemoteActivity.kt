@@ -5,7 +5,9 @@ import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.annotation.SuppressLint
 import android.view.Gravity
+import android.view.MotionEvent
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -94,6 +96,7 @@ class TvRemoteActivity : AppCompatActivity() {
         binding.buttonScreenMouseFree.setOnClickListener { setScreenMouse("free") }
         binding.buttonScreenMousePrimary.setOnClickListener { setScreenMouse("primary") }
         binding.buttonScreenMouseSecondary.setOnClickListener { setScreenMouse("secondary") }
+        setupTouchpad()
         binding.buttonScreenAudioTv.setOnClickListener { setScreenAudio("tv") }
         binding.buttonScreenAudioPc.setOnClickListener { setScreenAudio("pc") }
         binding.buttonScreenStop.setOnClickListener {
@@ -427,6 +430,64 @@ class TvRemoteActivity : AppCompatActivity() {
                 // icona non disponibile: resta il segnaposto
             }
         }.start()
+    }
+
+    private var padX = 0f
+    private var padY = 0f
+    private var padAccX = 0f
+    private var padAccY = 0f
+    private var padLastSend = 0L
+    private var padDownTime = 0L
+    private var padMoved = 0f
+
+    /** Il riquadro fa da touchpad: dito = puntatore della TV, tocco = OK, due dita = scorrimento. */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupTouchpad() {
+        val density = resources.displayMetrics.density
+        binding.tvTouchpad.setOnTouchListener { v, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    v.parent.requestDisallowInterceptTouchEvent(true)
+                    padX = ev.x; padY = ev.y
+                    padAccX = 0f; padAccY = 0f
+                    padDownTime = ev.eventTime; padMoved = 0f
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (ev.x - padX) / density
+                    val dy = (ev.y - padY) / density
+                    padX = ev.x; padY = ev.y
+                    padMoved += Math.abs(dx) + Math.abs(dy)
+                    if (ev.pointerCount >= 2) {
+                        padAccY += dy
+                        if (ev.eventTime - padLastSend >= 80 && Math.abs(padAccY) >= 1f) {
+                            padLastSend = ev.eventTime
+                            sendCommand(JSONObject().put("type", "tv_pointer").put("kind", "scroll")
+                                .put("dy", Math.round(padAccY * 1.5f)))
+                            padAccY = 0f
+                        }
+                    } else {
+                        padAccX += dx * 2.5f
+                        padAccY += dy * 2.5f
+                        if (ev.eventTime - padLastSend >= 33) {
+                            val mx = Math.round(padAccX)
+                            val my = Math.round(padAccY)
+                            if (mx != 0 || my != 0) {
+                                padLastSend = ev.eventTime
+                                padAccX -= mx; padAccY -= my
+                                sendCommand(JSONObject().put("type", "tv_pointer").put("kind", "move")
+                                    .put("dx", mx).put("dy", my))
+                            }
+                        }
+                    }
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (ev.eventTime - padDownTime < 250 && padMoved < 8f) {
+                        sendCommand(JSONObject().put("type", "tv_pointer").put("kind", "click"))
+                    }
+                }
+            }
+            true
+        }
     }
 
     private fun setScreenAudio(route: String) {

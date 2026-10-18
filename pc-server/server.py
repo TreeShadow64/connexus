@@ -93,6 +93,8 @@ SPECIAL_KEYS = {
 }
 
 last_renderers = []
+tv_pointer = webos_remote.PointerSession()
+_last_media_key = 0.0
 
 # Blocco manuale di "Schermo PC" e "Projector" dalle Impostazioni: di
 # default disattivo (le due funzioni restano sempre accessibili dal
@@ -430,6 +432,23 @@ async def handle_async_command(data):
             log.warning(f"D-pad TV fallito ({direction}): {e}")
             return {"type": "tv_error", "message": f"D-pad fallito: {str(e) or type(e).__name__}"}
 
+    elif cmd == "tv_pointer":
+        kind = data.get("kind")
+        try:
+            key = config.get("client_key")
+            if kind == "move":
+                await tv_pointer.move(tv_ip, key, data.get("dx", 0), data.get("dy", 0))
+            elif kind == "click":
+                await tv_pointer.click(tv_ip, key)
+            elif kind == "scroll":
+                await tv_pointer.scroll(tv_ip, key, data.get("dy", 0))
+            else:
+                return {"type": "tv_error", "message": f"Puntatore: azione sconosciuta {kind}"}
+            return {"type": "tv_pointer_ok"}
+        except Exception as e:
+            log.warning(f"Puntatore TV fallito ({kind}): {e}")
+            return {"type": "tv_error", "message": f"Puntatore fallito: {str(e) or type(e).__name__}"}
+
     elif cmd == "tv_button":
         name = data.get("name", "")
         button_name = webos_remote.REMOTE_BUTTON_NAMES.get(name)
@@ -482,7 +501,7 @@ async def handle_async_command(data):
 ASYNC_COMMANDS = {
     "tv_pair", "tv_command", "tv_dpad", "tv_button",
     "tv_list_apps", "tv_launch_app", "tv_list_inputs", "tv_switch_input",
-    "tv_discover", "tv_set", "tvscreen_open",
+    "tv_discover", "tv_set", "tvscreen_open", "tv_pointer",
 }
 
 
@@ -811,7 +830,7 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/fs/download"):
             self._serve_download()
             return
-        if self.path.startswith(("/tvscreen", "/tvaudio", "/tvframe", "/tvvideo", "/tvlog", "/tvstate")):
+        if self.path.startswith(("/tvscreen", "/tvaudio", "/tvframe", "/tvvideo", "/tvlog", "/tvstate", "/tvkey")):
             self._serve_tv_screen()
             return
         super().do_GET()
@@ -919,6 +938,20 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/tvlog":
             text = (parse_qs(parsed.query).get("m", [""])[0] or "")[:200]
             log.info(f"Pagina TV {self.client_address[0]}: {text}")
+            self.send_response(204)
+            self.end_headers()
+            return
+        if parsed.path == "/tvkey":
+            # PLAY/PAUSE del telecomando mentre si guarda il secondo schermo: tasto multimediale
+            # sul PC (mette in pausa / fa ripartire il video che sta girando li')
+            global _last_media_key
+            code = parse_qs(parsed.query).get("c", [""])[0]
+            now = time.time()
+            if code in ("19", "415", "179") and now - _last_media_key > 0.4:
+                _last_media_key = now
+                keyboard.press(Key.media_play_pause)
+                keyboard.release(Key.media_play_pause)
+                log.info(f"Tasto del telecomando {code}: play/pausa sul PC")
             self.send_response(204)
             self.end_headers()
             return
@@ -1765,7 +1798,7 @@ def handle_dashboard_action(action, payload):
     if action in (
         "tv_pair", "tv_command", "tv_dpad", "tv_button",
         "tv_list_apps", "tv_launch_app", "tv_list_inputs", "tv_switch_input",
-        "tv_discover", "tv_set", "tvscreen_open",
+        "tv_discover", "tv_set", "tvscreen_open", "tv_pointer",
     ):
         # handle_async_command() gira sul loop asyncio principale (chiamate
         # di rete verso la TV): questa azione arriva pero' dal thread

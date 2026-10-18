@@ -593,6 +593,13 @@ function unlock(){ if (ctx && ctx.state === "suspended") ctx.resume(); aud.style
 document.addEventListener("click", unlock); document.addEventListener("keydown", function(e){
   unlock();
   var k = e.keyCode;   /* 38 su: diagnostica; 37 sinistra, 39 destra: ritardo audio */
+  tvlog("tasto " + k);
+  if (k === 19 || k === 415 || k === 179 || k === 413 || k === 412 || k === 417){   /* pausa, play, stop, indietro, avanti */
+    e.preventDefault();
+    tvlog("tasto multimediale " + k);
+    if (k !== 413 && k !== 412 && k !== 417) new Image().src = "/tvkey?k=" + KEY + "&c=" + k + "&t=" + Date.now();
+    return;
+  }
   if (k === 38){ dbg = !dbg; if (!dbg) delayBox.style.display = "none"; }
   if (k === 37 || k === 39){
     delay = Math.max(0, Math.min(2, delay + (k === 39 ? 0.1 : -0.1)));
