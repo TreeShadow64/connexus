@@ -377,6 +377,19 @@ function fallback(why){
   usedFallback = true; tvlog("ripiego JPEG: " + why); pullDirect();
 }
 
+/* play/pausa sul PC: il tasto multimediale del PC ferma/fa ripartire il video che sta girando li' */
+function mediaKey(code){ new Image().src = "/tvkey?k=" + KEY + "&c=" + code + "&t=" + Date.now(); }
+if (navigator.mediaSession){      /* i tasti multimediali del telecomando, se la TV li gira al browser */
+  try {
+    ["play", "pause", "stop", "previoustrack", "nexttrack", "seekbackward", "seekforward"].forEach(function(a){
+      try { navigator.mediaSession.setActionHandler(a, function(){ tvlog("mediaSession " + a); if (a === "play" || a === "pause") mediaKey(19); }); } catch (e) {}
+    });
+  } catch (e) {}
+}
+/* se la TV mette in pausa/riprende direttamente il suo video (WebRTC), lo gira al PC */
+video.addEventListener("pause", function(){ tvlog("evento pause del video"); if (RTC_ACTIVE) mediaKey(19); });
+video.addEventListener("play", function(){ if (RTC_ACTIVE && !video.dataset.first) { tvlog("evento play del video"); mediaKey(415); } video.dataset.first = "1"; });
+
 /* l'app puo' spostare l'audio: "pc" = la TV non lo riceve (resta sugli altoparlanti del PC).
    Con WebRTC il lettore allinea il video all'audio (~225 ms di uscita audio della TV) e non
    torna indietro da solo: al cambio si ricollega, cosi' senza audio il video resta a ~30 ms. */
@@ -594,10 +607,11 @@ document.addEventListener("click", unlock); document.addEventListener("keydown",
   unlock();
   var k = e.keyCode;   /* 38 su: diagnostica; 37 sinistra, 39 destra: ritardo audio */
   tvlog("tasto " + k);
-  if (k === 19 || k === 415 || k === 179 || k === 413 || k === 412 || k === 417){   /* pausa, play, stop, indietro, avanti */
+  /* pausa 19, play 415, play/pausa 179, GIALLO 405 (ripiego: la TV non passa sempre pausa/play alla pagina) */
+  if (k === 19 || k === 415 || k === 179 || k === 405 || k === 413 || k === 412 || k === 417){
     e.preventDefault();
     tvlog("tasto multimediale " + k);
-    if (k !== 413 && k !== 412 && k !== 417) new Image().src = "/tvkey?k=" + KEY + "&c=" + k + "&t=" + Date.now();
+    if (k !== 413 && k !== 412 && k !== 417) mediaKey(k);
     return;
   }
   if (k === 38){ dbg = !dbg; if (!dbg) delayBox.style.display = "none"; }

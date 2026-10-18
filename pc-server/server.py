@@ -947,7 +947,7 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
             global _last_media_key
             code = parse_qs(parsed.query).get("c", [""])[0]
             now = time.time()
-            if code in ("19", "415", "179") and now - _last_media_key > 0.4:
+            if code in ("19", "415", "179", "405") and now - _last_media_key > 0.4:
                 _last_media_key = now
                 keyboard.press(Key.media_play_pause)
                 keyboard.release(Key.media_play_pause)
