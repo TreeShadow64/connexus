@@ -147,6 +147,11 @@ def apply_update(zip_url, on_restart):
     bat_path = tmp_root / "apply_update.bat"
     bat_path.write_text(
         "@echo off\r\n"
+        # i processi di cattura (stesso exe con --capture-process) sopravvivono alla chiusura
+        # dell'app e tengono bloccato l'exe: senza questo l'exe restava quello vecchio
+        "timeout /t 2 /nobreak >nul\r\n"
+        "taskkill /F /IM Connexus-PC-Hub.exe >nul 2>&1\r\n"
+        "timeout /t 2 /nobreak >nul\r\n"
         f'robocopy "{new_dir}" "{install_dir}" Connexus-PC-Hub.exe /R:20 /W:2 >nul\r\n'
         f'robocopy "{new_dir}\\_internal" "{install_dir}\\_internal" /MIR /R:20 /W:2 >nul\r\n'
         f'start "" "{install_dir}\\Connexus-PC-Hub.exe"\r\n'
