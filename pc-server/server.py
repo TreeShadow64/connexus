@@ -95,6 +95,7 @@ SPECIAL_KEYS = {
 last_renderers = []
 tv_pointer = webos_remote.PointerSession()
 _last_media_key = 0.0
+_last_seek_key = 0.0
 
 # Blocco manuale di "Schermo PC" e "Projector" dalle Impostazioni: di
 # default disattivo (le due funzioni restano sempre accessibili dal
@@ -944,7 +945,7 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/tvkey":
             # PLAY/PAUSE del telecomando mentre si guarda il secondo schermo: tasto multimediale
             # sul PC (mette in pausa / fa ripartire il video che sta girando li')
-            global _last_media_key
+            global _last_media_key, _last_seek_key
             code = parse_qs(parsed.query).get("c", [""])[0]
             now = time.time()
             if code in ("19", "415", "179", "405") and now - _last_media_key > 0.4:
@@ -952,6 +953,17 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
                 keyboard.press(Key.media_play_pause)
                 keyboard.release(Key.media_play_pause)
                 log.info(f"Tasto del telecomando {code}: play/pausa sul PC")
+            if code == "406" and now - _last_seek_key > 0.5:
+                _last_seek_key = now
+                keyboard.press("f")
+                keyboard.release("f")
+                log.info("Tasto del telecomando 406: schermo intero sul PC (alterna)")
+            if code in ("403", "404") and now - _last_seek_key > 0.15:
+                _last_seek_key = now
+                arrow = Key.left if code == "403" else Key.right
+                keyboard.press(arrow)
+                keyboard.release(arrow)
+                log.info(f"Tasto del telecomando {code}: {'indietro' if code == '403' else 'avanti'} sul PC")
             self.send_response(204)
             self.end_headers()
             return

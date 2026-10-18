@@ -607,8 +607,9 @@ document.addEventListener("click", unlock); document.addEventListener("keydown",
   unlock();
   var k = e.keyCode;   /* 38 su: diagnostica; 37 sinistra, 39 destra: ritardo audio */
   tvlog("tasto " + k);
+  /* ROSSO 403 = indietro, VERDE 404 = avanti (freccia sinistra/destra sul PC), BLU 406 = schermo intero (tasto F: alterna) */
   /* pausa 19, play 415, play/pausa 179, GIALLO 405 (ripiego: la TV non passa sempre pausa/play alla pagina) */
-  if (k === 19 || k === 415 || k === 179 || k === 405 || k === 413 || k === 412 || k === 417){
+  if (k === 19 || k === 415 || k === 179 || k === 405 || k === 403 || k === 404 || k === 406 || k === 413 || k === 412 || k === 417){
     e.preventDefault();
     tvlog("tasto multimediale " + k);
     if (k !== 413 && k !== 412 && k !== 417) mediaKey(k);
