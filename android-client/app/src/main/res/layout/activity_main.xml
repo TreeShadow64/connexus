@@ -526,7 +526,7 @@
                         android:layout_weight="1"
                         android:ellipsize="end"
                         android:maxLines="1"
-                        android:text="accensione remota"
+                        android:text="alimentazione"
                         android:textSize="8sp" />
 
                     <View
@@ -547,7 +547,7 @@
                     style="@style/Text.Hud.Title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Wake-on-LAN" />
+                    android:text="Accendi / spegni" />
 
                 <TextView
                     android:id="@+id/valueWake"
@@ -555,7 +555,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="sveglia il pc" />
+                    android:text="sveglia o spegni il pc" />
             </LinearLayout>
             </GridLayout>
 

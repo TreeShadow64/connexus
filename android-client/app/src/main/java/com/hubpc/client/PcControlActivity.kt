@@ -81,6 +81,7 @@ class PcControlActivity : AppCompatActivity() {
         binding.buttonOpenKeyboard.setOnClickListener { showKeyboardDialog() }
 
         connect(ip, token)
+        if (intent.getBooleanExtra("openPower", false)) showPowerDialog()
     }
 
     // --- popup alimentazione ---

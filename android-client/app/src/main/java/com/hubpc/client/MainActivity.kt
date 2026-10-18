@@ -86,7 +86,16 @@ class MainActivity : AppCompatActivity() {
         // raggiungibile (sveglia da spento, cambio connessione), quindi non
         // passano dal gate di openSection().
         binding.cardSystem.setOnClickListener { openUngated(SystemActivity::class.java) }
-        binding.cardWake.setOnClickListener { openUngated(SystemActivity::class.java) }
+        // accensione e spegnimento sono un solo popup (Avvia / Sospendi / Riavvia / Spegni): da
+        // spento funziona "Avvia" (Wake-on-LAN, non serve il collegamento)
+        binding.cardWake.setOnClickListener {
+            startActivity(
+                Intent(this, PcControlActivity::class.java)
+                    .putExtra("ip", activeIp)
+                    .putExtra("token", activeToken)
+                    .putExtra("openPower", true)
+            )
+        }
 
         binding.topBar.onHelp = {
             HelpDialogs.show(
