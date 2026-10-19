@@ -387,8 +387,14 @@ if (navigator.mediaSession){      /* i tasti multimediali del telecomando, se la
   } catch (e) {}
 }
 /* se la TV mette in pausa/riprende direttamente il suo video (WebRTC), lo gira al PC */
-video.addEventListener("pause", function(){ tvlog("evento pause del video"); if (RTC_ACTIVE) mediaKey(19); });
-video.addEventListener("play", function(){ if (RTC_ACTIVE && !video.dataset.first) { tvlog("evento play del video"); mediaKey(415); } video.dataset.first = "1"; });
+/* La pausa del telecomando mette in pausa il video della TV (WebRTC): la giriamo al PC (alterna
+   pausa/riprendi) e facciamo ripartire subito il flusso, cosi' non resta fermo ne' si blocca. */
+video.addEventListener("pause", function(){
+  if (!RTC_ACTIVE) return;
+  tvlog("pausa dal telecomando");
+  mediaKey(19);
+  setTimeout(function(){ try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch (e) {} }, 150);
+});
 
 /* l'app puo' spostare l'audio: "pc" = la TV non lo riceve (resta sugli altoparlanti del PC).
    Con WebRTC il lettore allinea il video all'audio (~225 ms di uscita audio della TV) e non
@@ -526,8 +532,14 @@ function startRtc(){
     var q = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality() : null;
     var total = q ? q.totalVideoFrames : (video.webkitDecodedFrameCount || 0);
     frames = total - lastFrames;
-    if (total > 0) shown = true;
-    if (!shown && ticks >= 8){ toMse("nessun fotogramma in 8 s"); return; }
+    if (total > 0 && !shown){ shown = true; try { sessionStorage.rtcTries = "0"; } catch (e) {} }
+    if (!shown && (ticks === 3 || ticks === 5) && video.paused){ try { video.play(); } catch (e) {} }
+    if (!shown && ticks >= 8){
+      var tries = 0;
+      try { tries = parseInt(sessionStorage.rtcTries || "0", 10) || 0; } catch (e) {}
+      if (tries < 2){ try { sessionStorage.rtcTries = String(tries + 1); } catch (e) {} tvlog("nessun fotogramma: riprovo WebRTC (" + (tries + 1) + ")"); location.reload(); return; }
+      toMse("nessun fotogramma in 8 s"); return;
+    }
     if (ticks % 4 === 0){
       var line = "rtc t+" + ticks + "s fotogrammi " + total + " totali";
       try {
