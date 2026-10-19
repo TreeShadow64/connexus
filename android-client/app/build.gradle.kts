@@ -24,8 +24,8 @@ android {
         applicationId = "com.hubpc.client"
         minSdk = 24
         targetSdk = 34
-        versionCode = 43
-        versionName = "0.43"
+        versionCode = 44
+        versionName = "0.44"
     }
 
     signingConfigs {
