@@ -24,6 +24,24 @@ def get_paths():
     return {k: (data.get(k, "") if os.path.isdir(str(data.get(k, ""))) else "") for k in KEYS}
 
 
+def get_pref(key, default=""):
+    value = _load().get(key, default)
+    return value if isinstance(value, str) else default
+
+
+def set_pref(key, value):
+    """Preferenza di testo corto (es. dove si sente l'audio del secondo schermo)."""
+    if not isinstance(value, str) or len(value) > 40 or key not in ("tv_audio_route",):
+        return False
+    data = _load()
+    data[key] = value
+    try:
+        STATE_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except OSError:
+        return False
+    return True
+
+
 def set_path(key, value):
     if key not in KEYS:
         return False

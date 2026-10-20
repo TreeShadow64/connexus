@@ -50,6 +50,7 @@ class AudioRoute:
         self._lock = threading.Lock()
         self._session = False       # secondo schermo acceso?
         self._we_muted = False      # il muto lo abbiamo messo noi?
+        self._persist = False       # salva la scelta in ui_state.json (solo l'istanza vera)
 
     # --- file marcatore ---
 
@@ -81,6 +82,12 @@ class AudioRoute:
         if route not in (ROUTE_TV, ROUTE_PC):
             return self.route
         self.route = route
+        if self._persist:
+            try:
+                from core import ui_state
+                ui_state.set_pref("tv_audio_route", route)
+            except Exception:
+                pass
         self._apply()
         if route == ROUTE_PC and self._session:
             # scelta esplicita di sentirlo sul PC: se erano muti (da altri) si riaccendono
@@ -131,6 +138,13 @@ class AudioRoute:
 
 
 route = AudioRoute()
+route._persist = True
+try:                                  # ricorda la scelta tra un riavvio e l'altro
+    from core import ui_state as _ui_state
+    if _ui_state.get_pref("tv_audio_route") in (ROUTE_TV, ROUTE_PC):
+        route.route = _ui_state.get_pref("tv_audio_route")
+except Exception:
+    pass
 
 import atexit  # noqa: E402
 atexit.register(lambda: route.session(False))
