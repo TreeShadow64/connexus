@@ -542,6 +542,14 @@ function startRtc(){
     }
     if (ticks % 4 === 0){
       var line = "rtc t+" + ticks + "s fotogrammi " + total + " totali";
+      try {   /* luminosita' media dell'immagine ricevuta: distingue "nero in arrivo" da "nero solo a schermo" */
+        var cv = window.__cv || (window.__cv = document.createElement("canvas"));
+        cv.width = 32; cv.height = 18;
+        var g = cv.getContext("2d"); g.drawImage(video, 0, 0, 32, 18);
+        var px = g.getImageData(0, 0, 32, 18).data, sum = 0;
+        for (var q = 0; q < px.length; q += 4) sum += px[q] + px[q + 1] + px[q + 2];
+        line += ", luminosita' " + Math.round(sum / (px.length / 4 * 3));
+      } catch (e) { line += ", luminosita' n/d (" + e.name + ")"; }
       try {
         pc.getStats(function(r){
           var vtxt = "", atxt = "";

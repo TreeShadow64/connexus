@@ -206,15 +206,6 @@ async def launch_app(tv_ip, client_key, app_id, timeout=8):
 
 async def open_url(tv_ip, client_key, url, timeout=10):
     """Apre un indirizzo web nel browser della TV."""
-    # Chiude prima il browser: se resta aperto con un video fermo/bloccato (per esempio dopo una
-    # pausa) tiene occupato il decodificatore e il WebRTC della nuova pagina non mostra fotogrammi
-    # (la pagina ripiegherebbe sul video classico, lento).
-    try:
-        await send_request(tv_ip, client_key, "ssap://system.launcher/close",
-                           {"id": "com.webos.app.browser"}, 5)
-        await asyncio.sleep(1.5)
-    except Exception:
-        pass
     try:
         return await send_request(
             tv_ip, client_key, "ssap://system.launcher/launch",
