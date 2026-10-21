@@ -95,6 +95,7 @@ class TvScreen:
         self._last_fragment = 0.0
         self._watchdog_started = False
         self._audio_route = "tv"
+        self.last_page_contact = 0.0      # ultimo messaggio ricevuto dalla pagina sulla TV
 
     # --- stato ---
 
@@ -393,7 +394,14 @@ video.addEventListener("pause", function(){
   if (!RTC_ACTIVE) return;
   tvlog("pausa dal telecomando");
   mediaKey(19);
-  setTimeout(function(){ try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch (e) {} }, 150);
+  /* riprende il flusso con insistenza: la TV a volte ignora il primo play() e l'immagine resta ferma */
+  var t0 = Date.now(), okCount = 0;
+  var iv = setInterval(function(){
+    if (!video.paused){ if (++okCount >= 4) clearInterval(iv); return; }
+    okCount = 0;
+    try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch (e) {}
+    if (Date.now() - t0 > 6000){ clearInterval(iv); tvlog("video fermo dopo la pausa: ricarico"); location.reload(); }
+  }, 250);
 });
 
 /* l'app puo' spostare l'audio: "pc" = la TV non lo riceve (resta sugli altoparlanti del PC).
@@ -525,7 +533,7 @@ function startRtc(){
     .then(function(a){ return pc.setRemoteDescription(a); })
     .catch(function(e){ toMse("segnalazione: " + e); });
 
-  var lastFrames = 0, ticks = 0;
+  var lastFrames = 0, ticks = 0, stuck = 0;
   var timer = setInterval(function(){
     if (done){ clearInterval(timer); return; }
     ticks++;
@@ -534,6 +542,18 @@ function startRtc(){
     frames = total - lastFrames;
     if (total > 0 && !shown){ shown = true; try { sessionStorage.rtcTries = "0"; } catch (e) {} }
     if (!shown && (ticks === 3 || ticks === 5) && video.paused){ try { video.play(); } catch (e) {} }
+    /* auto-riparazione: con WebRTC i fotogrammi arrivano sempre (anche a desktop fermo); se il
+       contatore non avanza per 5 s l'immagine e' congelata (decodificatore bloccato): ricarica */
+    if (shown && total === lastFrames){
+      if (++stuck >= 5){
+        var lastReload = 0;
+        try { lastReload = parseInt(sessionStorage.stuckTs || "0", 10) || 0; } catch (e) {}
+        if (Date.now() - lastReload > 20000){
+          try { sessionStorage.stuckTs = String(Date.now()); } catch (e) {}
+          tvlog("immagine ferma da 5 s: ricarico"); location.reload(); return;
+        }
+      }
+    } else stuck = 0;
     if (!shown && ticks >= 8){
       var tries = 0;
       try { tries = parseInt(sessionStorage.rtcTries || "0", 10) || 0; } catch (e) {}

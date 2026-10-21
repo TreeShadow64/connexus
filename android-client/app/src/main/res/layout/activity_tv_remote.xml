@@ -717,6 +717,13 @@
                         android:text="SPEGNI" />
                 </LinearLayout>
 
+                <Button
+                    android:id="@+id/buttonScreenReset"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="RIPRISTINA TV (immagine nera / tasti muti)" />
+
                 <TextView
                     android:id="@+id/textScreenMouse"
                     style="@style/Text.Hud.Eyebrow"

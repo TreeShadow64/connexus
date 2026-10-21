@@ -297,6 +297,15 @@ class PointerSession:
 
 
 async def send_button(tv_ip, client_key, button_name, timeout=5):
+    """Invia un tasto riprovando una volta: ogni tanto il socket del puntatore della TV non risponde."""
+    try:
+        return await _send_button_once(tv_ip, client_key, button_name, timeout)
+    except (TimeoutError, asyncio.TimeoutError, OSError):
+        await asyncio.sleep(0.5)
+        return await _send_button_once(tv_ip, client_key, button_name, timeout)
+
+
+async def _send_button_once(tv_ip, client_key, button_name, timeout=5):
     """Invia una pressione di tasto (D-pad, HOME, BACK, ecc.) tramite il pointer input socket."""
     if not client_key:
         raise WebOSError("TV non ancora abbinata: usa prima 'ABBINA TV'")

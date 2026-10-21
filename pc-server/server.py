@@ -389,7 +389,19 @@ async def handle_async_command(data):
             return {"type": "tv_error", "message": started["error"]}
         url = tv_screen_url()
         try:
+            if data.get("reset"):
+                # ripristino: chiude il browser della TV (decodificatore, fuoco e stato di prima)
+                # e lo riapre pulito; l'OK automatico qui sotto gli ridà i tasti
+                try:
+                    await webos_remote.send_request(tv_ip, config.get("client_key"),
+                                                    "ssap://system.launcher/close",
+                                                    {"id": "com.webos.app.browser"}, 5)
+                except Exception:
+                    pass
+                await asyncio.sleep(3)
+            opened_at = time.time()
             await webos_remote.open_url(tv_ip, config.get("client_key"), url)
+            asyncio.create_task(_focus_tv_page(tv_ip, config.get("client_key"), opened_at))
         except Exception as e:
             reason = "la TV non risponde (accesa e sulla stessa rete?)" if isinstance(e, (TimeoutError, asyncio.TimeoutError, OSError))                 else (str(e) or type(e).__name__)
             return {"type": "tv_error", "url": url,
@@ -515,6 +527,24 @@ def mouse_lock_reply():
     }[mode]
     return {"type": "mouse_lock_state", "locked": mode != mouse_guard.MODE_FREE,
             "mode": mode, "message": message}
+
+
+async def _focus_tv_page(tv_ip, client_key, opened_at):
+    """Un browser della TV appena (ri)aperto non manda i tasti del telecomando alla pagina finche'
+    non riceve un primo OK: quello che l'utente faceva a mano per lo schermo intero. Lo mandiamo noi,
+    appena la pagina si fa sentire (e solo allora, per non premere OK su altro)."""
+    screen = tv_screen_module.tv_screen
+    for _ in range(40):
+        await asyncio.sleep(0.5)
+        if screen.last_page_contact > opened_at:
+            await asyncio.sleep(2.0)
+            try:
+                await webos_remote.send_button(tv_ip, client_key, "ENTER")
+                log.info("OK inviato alla pagina della TV (schermo intero e tasti attivi)")
+            except Exception as e:
+                log.warning(f"OK alla pagina della TV non riuscito: {type(e).__name__}")
+            return
+    log.warning("La pagina della TV non si e' fatta sentire: nessun OK inviato")
 
 
 def tv_audio_route_reply():
@@ -938,6 +968,7 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/tvlog":
             text = (parse_qs(parsed.query).get("m", [""])[0] or "")[:200]
+            screen.last_page_contact = time.time()
             log.info(f"Pagina TV {self.client_address[0]}: {text}")
             self.send_response(204)
             self.end_headers()

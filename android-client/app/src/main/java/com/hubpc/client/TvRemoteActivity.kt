@@ -96,6 +96,10 @@ class TvRemoteActivity : AppCompatActivity() {
         binding.buttonScreenMouseFree.setOnClickListener { setScreenMouse("free") }
         binding.buttonScreenMousePrimary.setOnClickListener { setScreenMouse("primary") }
         binding.buttonScreenMouseSecondary.setOnClickListener { setScreenMouse("secondary") }
+        binding.buttonScreenReset.setOnClickListener {
+            sendCommand(JSONObject().put("type", "tvscreen_open").put("reset", true))
+            log("Ripristino la TV e riapro il secondo schermo...")
+        }
         setupTouchpad()
         binding.buttonScreenAudioTv.setOnClickListener { setScreenAudio("tv") }
         binding.buttonScreenAudioPc.setOnClickListener { setScreenAudio("pc") }

@@ -335,10 +335,10 @@ async function setAudioRoute(route) {
     updateAudioRouteUI(result.route || route);
 }
 
-async function tvScreenOpen() {
+async function tvScreenOpen(reset = false) {
     const status = document.getElementById("tvScreenStatus");
-    status.textContent = "Creo il monitor virtuale e lo apro sulla TV...";
-    const result = await runAction("tvscreen_open");
+    status.textContent = reset ? "Ripristino il browser della TV e riapro il secondo schermo..." : "Creo il monitor virtuale e lo apro sulla TV...";
+    const result = await runAction("tvscreen_open", reset ? { reset: true } : {});
     status.textContent = result.type === "tv_ok"
         ? "Fatto. Sposta il mouse oltre il bordo destro dello schermo per usarlo."
         : (result.message || result.error || "Operazione non riuscita");
