@@ -95,6 +95,7 @@ class TvScreen:
         self._last_fragment = 0.0
         self._watchdog_started = False
         self._audio_route = "tv"
+        self.rtc_allowed = False          # modalita' "veloce" (WebRTC) scelta dall'utente
         self.last_page_contact = 0.0      # ultimo messaggio ricevuto dalla pagina sulla TV
 
     # --- stato ---
@@ -246,7 +247,7 @@ class TvScreen:
     @property
     def rtc_enabled(self):
         streamer = self._streamer
-        return bool(streamer is not None and streamer.wait_rtc_ready())
+        return bool(self.rtc_allowed and streamer is not None and streamer.wait_rtc_ready())
 
     def rtc_offer(self, sdp, sdp_type):
         streamer = self._streamer
@@ -413,6 +414,12 @@ setInterval(function(){
     if (EMBEDDED_AUDIO) video.muted = (i.route === "pc");
     if (RTC_ACTIVE && lastRoute !== null && i.route !== lastRoute) { location.reload(); return; }
     lastRoute = i.route;
+    /* l'utente ha cambiato modalita' (stabile/veloce): ricarica, al massimo una volta ogni 15 s */
+    if ((i.rtc ? "1" : "0") !== RTC_ENABLED){
+      var last = 0;
+      try { last = parseInt(sessionStorage.modeTs || "0", 10) || 0; } catch (e) {}
+      if (Date.now() - last > 15000){ try { sessionStorage.modeTs = String(Date.now()); } catch (e) {} location.reload(); }
+    }
   }).catch(function(){});
 }, 2500);
 

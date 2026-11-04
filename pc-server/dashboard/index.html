@@ -199,6 +199,11 @@
                             <button class="hud-button" id="mouseModePrimary" onclick="setMouseMode('primary')">SOLO SCHERMO 1 (PC)</button>
                             <button class="hud-button" id="mouseModeSecondary" onclick="setMouseMode('secondary')">SOLO SCHERMO 2 (TV)</button>
                         </div>
+                        <div class="hud-eyebrow" style="margin-top:18px;">modalita': stabile (parte sempre, ~1 s di ritardo) o veloce (poco ritardo, piu' delicata)</div>
+                        <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
+                            <button class="hud-button" id="tvModeMse" onclick="setTvMode('mse')">STABILE</button>
+                            <button class="hud-button" id="tvModeRtc" onclick="setTvMode('rtc')">VELOCE</button>
+                        </div>
                         <div class="hud-eyebrow" style="margin-top:18px;">audio: dove si sente il suono del PC</div>
                         <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
                             <button class="hud-button" id="audioRouteTv" onclick="setAudioRoute('tv')">SULLA TV</button>

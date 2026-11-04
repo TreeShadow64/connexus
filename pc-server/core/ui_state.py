@@ -31,7 +31,7 @@ def get_pref(key, default=""):
 
 def set_pref(key, value):
     """Preferenza di testo corto (es. dove si sente l'audio del secondo schermo)."""
-    if not isinstance(value, str) or len(value) > 40 or key not in ("tv_audio_route",):
+    if not isinstance(value, str) or len(value) > 40 or key not in ("tv_audio_route", "tv_mode"):
         return False
     data = _load()
     data[key] = value

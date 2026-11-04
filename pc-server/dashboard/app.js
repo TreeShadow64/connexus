@@ -289,6 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function updateTvScreenUI(status) {
     updateMouseUI(status.mouse_mode || "free");
     updateAudioRouteUI(status.tv_audio_route || "tv");
+    updateTvModeUI(status.tv_mode || "mse");
     const on = !!status.tvscreen_active;
     document.getElementById("tvScreenState").textContent = on
         ? `acceso · ${status.tvscreen_viewers > 0 ? "la TV lo sta guardando" : "in attesa della TV"}`
@@ -314,6 +315,25 @@ async function setMouseMode(mode) {
     const result = await runAction("mouse_confine", { mode });
     status.textContent = result.message || result.error || "Errore";
     updateMouseUI(result.mode || mode);
+}
+
+const TV_MODE_BUTTONS = { mse: "tvModeMse", rtc: "tvModeRtc" };
+
+function updateTvModeUI(mode) {
+    Object.keys(TV_MODE_BUTTONS).forEach(m => {
+        const el = document.getElementById(TV_MODE_BUTTONS[m]);
+        if (!el) return;
+        el.classList.toggle("active", m === mode);
+        el.style.borderColor = m === mode ? "var(--cyan-glow)" : "";
+        el.style.boxShadow = m === mode ? "0 0 10px rgba(111,227,255,.45)" : "";
+    });
+}
+
+async function setTvMode(mode) {
+    const status = document.getElementById("tvScreenStatus");
+    const result = await runAction("tv_mode", { mode });
+    status.textContent = result.message || result.error || "Errore";
+    updateTvModeUI(result.mode || mode);
 }
 
 const AUDIO_BUTTONS = { tv: "audioRouteTv", pc: "audioRoutePc" };

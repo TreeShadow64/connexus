@@ -30,6 +30,7 @@ from core import dashboard_server
 from core import external_apps
 from core import pairing
 from core import ui_state
+from core import discovery
 from casting import dlna_cast
 from casting import dlna_server
 from files import file_browser
@@ -261,6 +262,10 @@ def handle_command(data, conn_key=None, peer_ip=None):
             }
         except file_browser.FileBrowserError as e:
             return {"type": "fs_error", "message": str(e)}
+    elif cmd in ("tv_mode", "tv_mode_get"):
+        if cmd == "tv_mode":
+            set_tv_mode(data.get("mode"))
+        return tv_mode_reply()
     elif cmd in ("tv_audio_route", "tv_audio_route_get"):
         if cmd == "tv_audio_route":
             audio_route_module.route.set_route(data.get("route"))
@@ -402,6 +407,9 @@ async def handle_async_command(data):
             opened_at = time.time()
             await webos_remote.open_url(tv_ip, config.get("client_key"), url)
             asyncio.create_task(_focus_tv_page(tv_ip, config.get("client_key"), opened_at))
+            global _tv_keepalive_task
+            if _tv_keepalive_task is None:
+                _tv_keepalive_task = asyncio.create_task(_tv_keepalive(tv_ip, config.get("client_key")))
         except Exception as e:
             reason = "la TV non risponde (accesa e sulla stessa rete?)" if isinstance(e, (TimeoutError, asyncio.TimeoutError, OSError))                 else (str(e) or type(e).__name__)
             return {"type": "tv_error", "url": url,
@@ -547,6 +555,47 @@ async def _focus_tv_page(tv_ip, client_key, opened_at):
     log.warning("La pagina della TV non si e' fatta sentire: nessun OK inviato")
 
 
+def get_tv_mode():
+    """'mse' = stabile (video classico, ~1 s di ritardo), 'rtc' = veloce (WebRTC, ~0,1-0,3 s ma piu'
+    delicato con il browser di questa TV). Predefinita: stabile."""
+    return "rtc" if ui_state.get_pref("tv_mode") == "rtc" else "mse"
+
+
+def set_tv_mode(mode):
+    mode = "rtc" if mode == "rtc" else "mse"
+    ui_state.set_pref("tv_mode", mode)
+    tv_screen_module.tv_screen.rtc_allowed = (mode == "rtc")
+    return mode
+
+
+def tv_mode_reply():
+    mode = get_tv_mode()
+    return {"type": "tv_mode_state", "mode": mode,
+            "message": "Modalita' veloce (WebRTC)" if mode == "rtc" else "Modalita' stabile (video classico)"}
+
+
+_tv_keepalive_task = None
+
+
+async def _tv_keepalive(tv_ip, client_key):
+    """La LG si spegne dopo ore senza alcun comando dal telecomando (anche se sta mostrando il secondo
+    schermo): un minimo movimento del puntatore ogni 15 minuti vale come attivita'."""
+    global _tv_keepalive_task
+    try:
+        while tv_screen_module.tv_screen.active:
+            await asyncio.sleep(900)
+            if not tv_screen_module.tv_screen.active:
+                break
+            try:
+                await tv_pointer.move(tv_ip, client_key, 1, 0)
+                await tv_pointer.move(tv_ip, client_key, -1, 0)
+                log.info("Attivita' inviata alla TV (evita lo spegnimento automatico)")
+            except Exception as e:
+                log.warning(f"Attivita' alla TV non riuscita: {type(e).__name__}")
+    finally:
+        _tv_keepalive_task = None
+
+
 def tv_audio_route_reply():
     state = audio_route_module.route.state()
     message = ("L'audio del PC si sente sulla TV" if state["route"] == audio_route_module.ROUTE_TV
@@ -592,6 +641,7 @@ def tv_screen_start(profile=None):
         log.warning(f"Secondo schermo TV non avviato: {e}")
         return {"ok": False, "error": f"Secondo schermo non avviato: {str(e) or type(e).__name__}"}
     tv_screen_module.tv_screen.set_audio_route(audio_route_module.route.route)
+    tv_screen_module.tv_screen.rtc_allowed = (get_tv_mode() == "rtc")
     audio_route_module.route.session(True)
     return {"ok": True, "geometry": geometry}
 
@@ -1790,6 +1840,7 @@ def collect_dashboard_status():
         "tvscreen_profile": tv_screen_module.tv_screen.profile,
         "tvaudio_listeners": tv_audio_module.tv_audio.listeners,
         "tv_audio_route": audio_route_module.route.route,
+        "tv_mode": get_tv_mode(),
         "tv_audio_pc_muted": audio_route_module.route.pc_muted_by_us,
         "app_version": updater.APP_VERSION,
         "update_progress": updater.get_progress(),
@@ -1879,6 +1930,9 @@ def handle_dashboard_action(action, payload):
     if action == "tvscreen_stop":
         tv_screen_stop()
         return {"ok": True}
+    if action == "tv_mode":
+        set_tv_mode(payload.get("mode"))
+        return {"ok": True, **tv_mode_reply()}
     if action == "tv_audio_route":
         audio_route_module.route.set_route(payload.get("route"))
         tv_screen_module.tv_screen.set_audio_route(audio_route_module.route.route)
@@ -1908,6 +1962,7 @@ async def main():
     print("=" * 60, flush=True)
     start_media_http_server()
     dashboard_server.start(status_provider=collect_dashboard_status, action_handler=handle_dashboard_action)
+    discovery.start()
     firebase_relay.start()
     async with (
         serve(handler, HOST, PORT),

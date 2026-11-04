@@ -717,6 +717,37 @@
                         android:text="SPEGNI" />
                 </LinearLayout>
 
+                <TextView
+                    android:id="@+id/textScreenMode"
+                    style="@style/Text.Hud.Eyebrow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="modalita': stabile" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/buttonScreenModeStable"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:text="STABILE" />
+
+                    <Button
+                        android:id="@+id/buttonScreenModeFast"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:text="VELOCE" />
+                </LinearLayout>
+
                 <Button
                     android:id="@+id/buttonScreenReset"
                     android:layout_width="match_parent"

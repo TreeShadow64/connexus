@@ -37,6 +37,9 @@ class MainActivity : AppCompatActivity() {
     private var attemptIndex = 0
     private var activeIp: String = ""
     private var activeToken: String = ""
+    private var discoveryDone = false          // ricerca del PC in rete gia' tentata in questo giro
+    private val retryHandler = Handler(Looper.getMainLooper())
+    private val retryRunnable = Runnable { if (!authenticated && !isFinishing) startConnecting(checkUpdate = false) }
 
     private val clockHandler = Handler(Looper.getMainLooper())
     private val clockTick = object : Runnable {
@@ -125,6 +128,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         clockHandler.removeCallbacks(clockTick)
+        retryHandler.removeCallbacks(retryRunnable)
         super.onPause()
     }
 
@@ -150,22 +154,60 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun startConnecting() {
+    private fun startConnecting(checkUpdate: Boolean = true) {
         profiles = ConnectionProfiles.load(this)
-        com.hubpc.client.ui.AppUpdater.check(this)
+        if (checkUpdate) com.hubpc.client.ui.AppUpdater.check(this)
         if (profiles.isEmpty()) {
             binding.textPcAddress.text = "nessuna connessione configurata"
             setConnStatus(false, "non configurato")
             return
         }
         attemptIndex = 0
+        discoveryDone = false
+        retryHandler.removeCallbacks(retryRunnable)
         tryNextProfile()
+    }
+
+    /** Nessun indirizzo salvato risponde: il PC ha probabilmente un IP nuovo. Lo cerco in rete e
+     * riprovo con quello trovato (il token decide se e' davvero il mio PC). */
+    private fun discoverAndRetry() {
+        discoveryDone = true
+        setConnStatus(false, "connessione...")
+        binding.textPcAddress.text = "cerco il PC in rete..."
+        log("Cerco il PC sulla rete (l'indirizzo e' cambiato?)...")
+        Thread {
+            val found = PcLocator.discover()
+            runOnUiThread {
+                if (isFinishing) return@runOnUiThread
+                if (found.isEmpty()) {
+                    setConnStatus(false, "nessun pc raggiungibile")
+                    log("Nessun PC ha risposto in rete: riprovo tra poco.")
+                    retryHandler.postDelayed(retryRunnable, 15000)
+                    return@runOnUiThread
+                }
+                val first = profiles.firstOrNull() ?: return@runOnUiThread
+                log("Trovato in rete: " + found.joinToString { it.ip })
+                // per ogni PC trovato provo i token salvati: auth_ok conferma quello giusto
+                val candidates = mutableListOf<ConnectionProfile>()
+                for (f in found) for (p in profiles) {
+                    candidates.add(ConnectionProfile(p.name.ifEmpty { first.name }, f.ip, p.token))
+                }
+                profiles = candidates
+                attemptIndex = 0
+                tryNextProfile()
+            }
+        }.start()
     }
 
     private fun tryNextProfile() {
         if (attemptIndex >= profiles.size) {
+            if (!discoveryDone) {
+                discoverAndRetry()
+                return
+            }
             setConnStatus(false, "nessun pc raggiungibile")
             log("Nessuna delle ${profiles.size} connessioni salvate ha risposto.")
+            retryHandler.postDelayed(retryRunnable, 15000)
             return
         }
         val profile = profiles[attemptIndex]
@@ -205,6 +247,25 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    /** Salva l'indirizzo con cui ha risposto il PC al posto di quello vecchio (stesso token). */
+    private fun rememberAddress(connected: ConnectionProfile) {
+        val saved = ConnectionProfiles.load(this)
+        var changed = false
+        val updated = saved.map {
+            if (it.token == connected.token && it.ip != connected.ip) {
+                changed = true
+                ConnectionProfile(it.name, connected.ip, it.token)
+            } else {
+                it
+            }
+        }
+        if (changed) {
+            ConnectionProfiles.save(this, updated)
+            profiles = updated
+            log("Indirizzo del PC aggiornato: " + connected.ip)
+        }
+    }
+
     private fun handleServerMessage(text: String, profile: ConnectionProfile) {
         val json = try { JSONObject(text) } catch (e: Exception) { return }
         when (json.optString("type")) {
@@ -216,6 +277,7 @@ class MainActivity : AppCompatActivity() {
                 HudSession.token = profile.token
                 setConnStatus(true, "connesso")
                 log("Connesso a ${profile.name}.")
+                rememberAddress(profile)
                 webSocket?.send(JSONObject().put("type", "service_status").toString())
             }
             "auth_error" -> {
@@ -264,6 +326,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         clockHandler.removeCallbacks(clockTick)
+        retryHandler.removeCallbacks(retryRunnable)
         webSocket?.close(1000, "App chiusa")
         super.onDestroy()
     }

@@ -96,6 +96,8 @@ class TvRemoteActivity : AppCompatActivity() {
         binding.buttonScreenMouseFree.setOnClickListener { setScreenMouse("free") }
         binding.buttonScreenMousePrimary.setOnClickListener { setScreenMouse("primary") }
         binding.buttonScreenMouseSecondary.setOnClickListener { setScreenMouse("secondary") }
+        binding.buttonScreenModeStable.setOnClickListener { setScreenMode("mse") }
+        binding.buttonScreenModeFast.setOnClickListener { setScreenMode("rtc") }
         binding.buttonScreenReset.setOnClickListener {
             sendCommand(JSONObject().put("type", "tvscreen_open").put("reset", true))
             log("Ripristino la TV e riapro il secondo schermo...")
@@ -494,6 +496,10 @@ class TvRemoteActivity : AppCompatActivity() {
         }
     }
 
+    private fun setScreenMode(mode: String) {
+        sendCommand(JSONObject().put("type", "tv_mode").put("mode", mode))
+    }
+
     private fun setScreenAudio(route: String) {
         sendCommand(JSONObject().put("type", "tv_audio_route").put("route", route))
     }
@@ -607,8 +613,19 @@ class TvRemoteActivity : AppCompatActivity() {
                 sendCommand(JSONObject().put("type", "tv_list_apps"))
                 sendCommand(JSONObject().put("type", "mouse_lock_get"))
                 sendCommand(JSONObject().put("type", "tv_audio_route_get"))
+                sendCommand(JSONObject().put("type", "tv_mode_get"))
             }
             "auth_error" -> log("Autenticazione fallita")
+            "tv_mode_state" -> {
+                val mode = json.optString("mode", "mse")
+                binding.textScreenMode.text = if (mode == "rtc") {
+                    "modalita': veloce (poco ritardo, piu' delicata)"
+                } else {
+                    "modalita': stabile (parte sempre, ~1 s di ritardo)"
+                }
+                binding.buttonScreenModeStable.alpha = if (mode == "mse") 1f else 0.55f
+                binding.buttonScreenModeFast.alpha = if (mode == "rtc") 1f else 0.55f
+            }
             "tv_audio_state" -> {
                 val route = json.optString("route", "tv")
                 binding.textScreenAudio.text = if (route == "pc") {
