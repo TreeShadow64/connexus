@@ -38,6 +38,10 @@ class FtpSettingsActivity : AppCompatActivity() {
 
     private var ip = ""
     private var token = ""
+    private var sharingPort = FtpAdvancedSettingsActivity.DEFAULT_FTP_PORT
+    private var failures = 0
+    private var closing = false
+    private val retryHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
@@ -156,6 +160,7 @@ class FtpSettingsActivity : AppCompatActivity() {
             val localIp = localIpAddress() ?: "<IP del telefono>"
             currentAddress = "ftp://$localIp:$port"
             binding.textFtpAddress.text = currentAddress
+            sharingPort = port
             sendShareStatus(sharing = true, ftpPort = port)
         } catch (e: Exception) {
             binding.textFtpStatus.text = "avvio fallito: ${e.message}"
@@ -185,13 +190,48 @@ class FtpSettingsActivity : AppCompatActivity() {
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 val json = try { JSONObject(text) } catch (e: Exception) { return }
-                if (json.optString("type") == "auth_ok") authenticated = true
+                if (json.optString("type") == "auth_ok") {
+                    authenticated = true
+                    failures = 0
+                    // la condivisione puo' essere partita prima del collegamento, o il collegamento
+                    // puo' essersi ricreato (cambio di rete, PC riavviato): il PC va avvisato di nuovo
+                    if (sharing) runOnUiThread { sendShareStatus(sharing = true, ftpPort = sharingPort) }
+                }
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {}
 
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {}
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                lost()
+            }
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                lost()
+            }
         })
+    }
+
+    /** Collegamento col PC perso: riprova ogni 5 s; dopo due fallimenti cerca il PC in rete
+     * (puo' avere un indirizzo nuovo) e continua finche' la pagina e' aperta. */
+    private fun lost() {
+        authenticated = false
+        if (closing || isFinishing) return
+        failures++
+        retryHandler.postDelayed({
+            if (closing || isFinishing || authenticated) return@postDelayed
+            if (failures >= 2) {
+                Thread {
+                    val found = PcLocator.discover(2000)
+                    runOnUiThread {
+                        if (closing || isFinishing) return@runOnUiThread
+                        found.firstOrNull()?.let { ip = it.ip }
+                        connect(ip, token)
+                    }
+                }.start()
+            } else {
+                connect(ip, token)
+            }
+        }, 5000)
     }
 
     private fun sendShareStatus(sharing: Boolean, ftpPort: Int = FtpAdvancedSettingsActivity.DEFAULT_FTP_PORT) {
@@ -208,6 +248,8 @@ class FtpSettingsActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        closing = true
+        retryHandler.removeCallbacksAndMessages(null)
         ftpServer?.stop()
         if (sharing) sendShareStatus(sharing = false)
         webSocket?.close(1000, "Chiuso")
