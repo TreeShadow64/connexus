@@ -348,6 +348,8 @@ img.native{margin:auto;width:auto;height:auto;max-width:100%;max-height:100%}
 <div id="msg" class="note">Connexus: in attesa del secondo schermo...</div>
 <div id="aud" class="note"><button id="audbtn">Premi OK per attivare l'audio</button></div>
 <div id="delay" class="note"></div>
+<div id="lab" style="position:fixed;left:10px;top:10px;z-index:9;color:#fff;background:rgba(0,0,0,.65);font:28px sans-serif;padding:6px 12px;display:none"></div>
+<script>(function(){ var m = location.search.match(/[?&]lab=([A-Za-z0-9_.-]+)/); if (m){ var l = document.getElementById("lab"); l.textContent = m[1]; l.style.display = "block"; } })();</script>
 <div id="hint" class="note" style="bottom:60px;display:block;color:#fff;background:rgba(0,0,0,.55);width:max-content;margin:auto;padding:6px 14px">Premi OK sul telecomando per lo schermo intero</div>
 <script>setTimeout(function(){ var h = document.getElementById("hint"); if (h) h.style.display = "none"; }, 8000);</script>
 <script>
@@ -564,7 +566,15 @@ function startRtc(){
     if (!shown && ticks >= 8){
       var tries = 0;
       try { tries = parseInt(sessionStorage.rtcTries || "0", 10) || 0; } catch (e) {}
-      if (tries < 2){ try { sessionStorage.rtcTries = String(tries + 1); } catch (e) {} tvlog("nessun fotogramma: riprovo WebRTC (" + (tries + 1) + ")"); location.reload(); return; }
+      if (tries < 2){
+        try { sessionStorage.rtcTries = String(tries + 1); } catch (e) {}
+        tvlog("nessun fotogramma: riprovo WebRTC (" + (tries + 1) + ")");
+        /* il primo tentativo chiede al PC di riaprire la pagina con il comando di avvio (e' quello che
+           sblocca la TV); l'eventuale secondo ricarica da solo */
+        if (tries === 0){ new Image().src = "/tvreopen?k=" + KEY + "&t=" + Date.now(); }
+        else location.reload();
+        return;
+      }
       toMse("nessun fotogramma in 8 s"); return;
     }
     if (ticks % 4 === 0){
@@ -643,6 +653,7 @@ function startAudio(){
   } catch (e) { /* senza audio il video funziona lo stesso */ }
 }
 function goFull(){
+  if (location.search.indexOf("fs=0") >= 0) return;      /* diagnostica: niente schermo intero */
   var e = document.documentElement;
   var f = e.requestFullscreen || e.webkitRequestFullscreen || e.webkitRequestFullScreen || e.mozRequestFullScreen;
   var on = document.fullscreenElement || document.webkitFullscreenElement;

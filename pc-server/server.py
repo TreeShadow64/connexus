@@ -393,6 +393,9 @@ async def handle_async_command(data):
         if not started.get("ok"):
             return {"type": "tv_error", "message": started["error"]}
         url = tv_screen_url()
+        extra = str(data.get("extra", ""))
+        if extra and all(c.isalnum() or c in "=&_.-" for c in extra) and len(extra) < 60:
+            url += "&" + extra.lstrip("&")        # parametri di diagnostica della pagina (fs=0, lab=...)
         try:
             if data.get("reset"):
                 # ripristino: chiude il browser della TV (decodificatore, fuoco e stato di prima)
@@ -406,6 +409,17 @@ async def handle_async_command(data):
                 await asyncio.sleep(3)
             opened_at = time.time()
             await webos_remote.open_url(tv_ip, config.get("client_key"), url)
+            warm = data.get("warm")
+            global _last_tv_open
+            _last_tv_open = (tv_ip, config.get("client_key"), url)
+            if warm is None and get_tv_mode() == "rtc":
+                # in modalita' veloce il video WebRTC resta nero (nessun fotogramma decodificato) se il
+                # browser della TV e' appena stato avviato; riaprendo la pagina con il comando di avvio
+                # quando il browser e' gia' in esecuzione si vede. Sapere se era gia' aperto e' inaffidabile
+                # (corse con il cambio di app): la riapertura si fa sempre.
+                warm = 3
+            if isinstance(warm, (int, float)) and 0 < warm <= 30:
+                asyncio.create_task(_reopen_when_running(tv_ip, config.get("client_key"), url, warm, opened_at))
             asyncio.create_task(_focus_tv_page(tv_ip, config.get("client_key"), opened_at))
             global _tv_keepalive_task
             if _tv_keepalive_task is None:
@@ -535,6 +549,38 @@ def mouse_lock_reply():
     }[mode]
     return {"type": "mouse_lock_state", "locked": mode != mouse_guard.MODE_FREE,
             "mode": mode, "message": message}
+
+
+_last_tv_open = None
+
+
+def tv_reopen_request():
+    """Richiesta dalla pagina della TV ("nessun fotogramma"): riapre la pagina con il comando di avvio."""
+    last = _last_tv_open
+    if last is None or _main_loop is None:
+        return False
+    tv_ip, client_key, url = last
+    asyncio.run_coroutine_threadsafe(_reopen_when_running(tv_ip, client_key, url, 0, time.time()), _main_loop)
+    return True
+
+
+async def _reopen_when_running(tv_ip, client_key, url, delay, opened_at):
+    """Con il browser della TV appena avviato il video WebRTC resta nero; riaprendo la pagina quando il
+    browser e' gia' in esecuzione si vede. Si aspetta che la pagina si faccia sentire (il browser da Netflix
+    puo' metterci 15-20 s), poi qualche secondo, e solo allora si riapre. Gira in secondo piano."""
+    screen = tv_screen_module.tv_screen
+    for _ in range(60):                       # fino a 30 s
+        await asyncio.sleep(0.5)
+        if screen.last_page_contact > opened_at:
+            break
+    await asyncio.sleep(min(delay, 3.0))
+    try:
+        reopened_at = time.time()
+        await webos_remote.open_url(tv_ip, client_key, url)
+        log.info("Pagina riaperta nel browser gia' in esecuzione")
+        await _focus_tv_page(tv_ip, client_key, reopened_at)
+    except Exception as e:
+        log.warning(f"Riapertura della pagina non riuscita: {type(e).__name__}")
 
 
 async def _focus_tv_page(tv_ip, client_key, opened_at):
@@ -911,7 +957,7 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/fs/download"):
             self._serve_download()
             return
-        if self.path.startswith(("/tvscreen", "/tvaudio", "/tvframe", "/tvvideo", "/tvlog", "/tvstate", "/tvkey")):
+        if self.path.startswith(("/tvscreen", "/tvaudio", "/tvframe", "/tvvideo", "/tvlog", "/tvstate", "/tvkey", "/tvreopen")):
             self._serve_tv_screen()
             return
         super().do_GET()
@@ -1020,6 +1066,11 @@ class HubHttpHandler(SimpleHTTPRequestHandler):
             text = (parse_qs(parsed.query).get("m", [""])[0] or "")[:200]
             screen.last_page_contact = time.time()
             log.info(f"Pagina TV {self.client_address[0]}: {text}")
+            self.send_response(204)
+            self.end_headers()
+            return
+        if parsed.path == "/tvreopen":
+            tv_reopen_request()
             self.send_response(204)
             self.end_headers()
             return
