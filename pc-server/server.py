@@ -642,6 +642,46 @@ async def _tv_keepalive(tv_ip, client_key):
         _tv_keepalive_task = None
 
 
+_phone_scan = {"at": 0.0, "found": [], "running": False}
+
+
+def _scan_phone_shares():
+    """Cerca nella rete locale (/24) server FTP del telefono Connexus (banner '220 Connexus Phone FTP')
+    sulla porta predefinita: serve quando il telefono ha la condivisione accesa ma non l'ha annunciata."""
+    import concurrent.futures
+    try:
+        base = ".".join(pairing.lan_ip().split(".")[:3])
+        port = 2121
+
+        def probe(host):
+            try:
+                with socket.create_connection((host, port), timeout=0.4) as s:
+                    s.settimeout(0.6)
+                    if b"Connexus Phone FTP" in s.recv(64):
+                        return host
+            except OSError:
+                pass
+            return None
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=64) as pool:
+            hosts = [h for h in pool.map(probe, [f"{base}.{i}" for i in range(1, 255)]) if h]
+        _phone_scan["found"] = [{"name": f"Telefono ({h})", "folder": "tutto lo storage", "ip": h,
+                                 "ftp_port": 2121} for h in hosts]
+    except Exception as e:
+        log.warning(f"Ricerca telefoni con FTP: {type(e).__name__}: {e}")
+    finally:
+        _phone_scan["at"] = time.time()
+        _phone_scan["running"] = False
+
+
+def detected_phone_shares():
+    """Ultimo risultato della ricerca (aggiornata in secondo piano ogni 10 s al massimo)."""
+    if not _phone_scan["running"] and time.time() - _phone_scan["at"] > 10:
+        _phone_scan["running"] = True
+        threading.Thread(target=_scan_phone_shares, name="phone-scan", daemon=True).start()
+    return list(_phone_scan["found"])
+
+
 def tv_audio_route_reply():
     state = audio_route_module.route.state()
     message = ("L'audio del PC si sente sulla TV" if state["route"] == audio_route_module.ROUTE_TV
@@ -1858,6 +1898,11 @@ def collect_dashboard_status():
     semplice da serializzare in JSON."""
     with shared_devices_lock:
         shares = list(shared_devices.values())
+    # telefoni con la condivisione FTP accesa che non l'hanno (ri)annunciata al PC: li trova il PC stesso
+    known = {(d.get("ip"), d.get("ftp_port")) for d in shares}
+    for found in detected_phone_shares():
+        if (found["ip"], found["ftp_port"]) not in known:
+            shares.append(found)
     apps = external_apps.get_config()
     return {
         "hostname": platform.node() or "PC",
