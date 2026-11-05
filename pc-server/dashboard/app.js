@@ -911,7 +911,9 @@ function renderFzEntries(containerId, footerId, entries, isLocal, canGoUp) {
             ? (isLocal
                 ? `<span class="ftp-entry-arrow" title="carica sulla condivisione" onclick='fzUpload(${JSON.stringify(entry.name)}); event.stopPropagation();'>→</span>`
                 : `<span class="ftp-entry-arrow" title="scarica sul PC" onclick='fzDownload(${JSON.stringify(entry.name)}); event.stopPropagation();'>←</span>`)
-            : "";
+            : (!isLocal
+                ? `<span class="ftp-entry-arrow" title="scarica tutta la cartella sul PC" onclick='fzDownload(${JSON.stringify(entry.name)}, true); event.stopPropagation();'>←</span>`
+                : "");
         rows.push(`
             <div class="ftp-entry" ${nav}>
                 <span class="ftp-entry-name">${icon} ${entry.name}</span>
@@ -987,22 +989,22 @@ async function fzUpload(filename) {
     }
 }
 
-async function fzDownload(filename) {
+async function fzDownload(filename, isDir = false) {
     if (!fzRemoteShare) return;
     const remotePath = fzRemotePath ? `${fzRemotePath}/${filename}` : filename;
-    setFzStatus(`Download di ${filename}...`);
+    setFzStatus(isDir ? `Download della cartella ${filename} (puo' richiedere un po')...` : `Download di ${filename}...`);
     try {
         const res = await fetch("/local/download-from-remote", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                remote_path: remotePath, local_dir: fzLocalPath,
+                remote_path: remotePath, local_dir: fzLocalPath, is_dir: isDir,
                 ip: fzRemoteShare.ip, port: fzRemoteShare.port, password: fzRemoteShare.password,
                 share_name: fzRemoteShare.name,
             }),
         });
         const result = await res.json();
-        setFzStatus(result.ok ? `${filename} scaricato.` : `Errore: ${result.error}`);
+        setFzStatus(result.ok ? (isDir ? `Cartella ${filename} scaricata (${result.files} file).` : `${filename} scaricato.`) : `Errore: ${result.error}`);
         fzLogAdd(result.ok ? `RETR ${filename} — completato` : `RETR ${filename} — ${result.error}`, !result.ok);
         if (result.ok) fzLoadLocal();
     } catch (e) {

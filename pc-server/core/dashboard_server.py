@@ -187,6 +187,12 @@ def start(status_provider, action_handler):
                 remote_path = body["remote_path"]
                 filename = remote_path.rsplit("/", 1)[-1]
                 dest = Path(body["local_dir"]) / filename
+                if body.get("is_dir"):
+                    count = ftp_client.download_tree(body["ip"], int(body["port"]), body["password"],
+                                                     remote_path, dest)
+                    _record_transfer("download", f"{filename} (cartella, {count} file)", body.get("share_name", "?"), True)
+                    _send_json(self, {"ok": True, "files": count})
+                    return
                 with open(dest, "wb") as f:
                     ftp_client.download_to_stream(body["ip"], int(body["port"]), body["password"], remote_path, f)
                 _record_transfer("download", filename, body.get("share_name", "?"), True)

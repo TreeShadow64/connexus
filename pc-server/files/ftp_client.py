@@ -115,6 +115,30 @@ def download_to_stream(host, port, password, remote_path, out_stream):
         ftp.quit()
 
 
+MAX_TREE_FILES = 20000
+
+
+def download_tree(host, port, password, remote_dir, local_dir, _counter=None):
+    """Scarica una cartella intera (sottocartelle comprese) dal telefono. Ritorna quanti file ha copiato."""
+    import os
+    from pathlib import Path
+
+    counter = _counter if _counter is not None else [0]
+    os.makedirs(local_dir, exist_ok=True)
+    for entry in list_dir(host, port, password, remote_dir):
+        remote_path = f"{remote_dir}/{entry['name']}" if remote_dir else entry["name"]
+        local_path = Path(local_dir) / entry["name"]
+        if entry["is_dir"]:
+            download_tree(host, port, password, remote_path, local_path, counter)
+        else:
+            if counter[0] >= MAX_TREE_FILES:
+                raise RuntimeError(f"cartella troppo grande (oltre {MAX_TREE_FILES} file)")
+            with open(local_path, "wb") as out:
+                download_to_stream(host, port, password, remote_path, out)
+            counter[0] += 1
+    return counter[0]
+
+
 def upload_from_stream(host, port, password, remote_path, in_stream):
     ftp = _connect(host, port, password)
     try:
