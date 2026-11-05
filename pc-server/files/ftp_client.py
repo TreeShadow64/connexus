@@ -29,17 +29,39 @@ def _unverified_tls_context():
 
 
 def _connect(host, port, password, timeout=10):
+    """Prima prova la connessione cifrata (AUTH TLS); se il server non la supporta (il telefono
+    risponde 502) o la connessione cade, ne apre una nuova in chiaro. Il ripiego automatico di
+    ftplib.FTP_TLS non basta: da Python 3.13 login() rifa' AUTH TLS su una connessione ormai
+    compromessa e sbatte contro WinError 10038."""
     ftp = ftplib.FTP_TLS(context=_unverified_tls_context(), timeout=timeout)
-    ftp.connect(host, port, timeout=timeout)
     try:
+        ftp.connect(host, port, timeout=timeout)
         ftp.auth()
-        tls_ok = True
-    except ftplib.all_errors:
-        tls_ok = False
-    ftp.login(user="phone", passwd=password)
-    if tls_ok:
+        ftp.login(user="phone", passwd=password)
         ftp.prot_p()
-    return ftp
+        return ftp
+    except ftplib.error_perm as e:
+        if str(e).startswith("530"):          # password sbagliata: non ha senso riprovare in chiaro
+            _close(ftp)
+            raise
+    except Exception:
+        pass
+    _close(ftp)
+    plain = ftplib.FTP(timeout=timeout)
+    try:
+        plain.connect(host, port, timeout=timeout)
+        plain.login(user="phone", passwd=password)
+    except Exception:
+        _close(plain)
+        raise
+    return plain
+
+
+def _close(ftp):
+    try:
+        ftp.close()
+    except Exception:
+        pass
 
 
 def _split_path(path):
