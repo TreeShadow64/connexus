@@ -30,7 +30,10 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private val client = OkHttpClient()
+    // 3 s al posto dei 10 predefiniti: con l'indirizzo vecchio ormai morto l'attesa si sentiva a ogni tentativo
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
     private var webSocket: WebSocket? = null
     private var authenticated = false
     private var profiles: List<ConnectionProfile> = emptyList()

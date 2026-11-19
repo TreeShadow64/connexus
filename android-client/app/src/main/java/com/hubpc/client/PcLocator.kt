@@ -66,6 +66,52 @@ object PcLocator {
         } finally {
             socket?.close()
         }
+        if (found.isEmpty()) {
+            // il broadcast spesso non passa dal Wi-Fi alla rete cablata del PC: provo gli indirizzi uno per uno
+            for (f in sweep()) found[f.ip] = f
+        }
         return found.values.toList()
+    }
+
+    /** Controlla gli indirizzi della propria sottorete /24 sulla porta del PC (collegamento diretto). */
+    fun sweep(timeoutMs: Int = 4000): List<Found> {
+        val base = localBase() ?: return emptyList()
+        val result = java.util.concurrent.ConcurrentLinkedQueue<Found>()
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(48)
+        for (i in 1..254) {
+            val host = "$base.$i"
+            pool.execute {
+                try {
+                    java.net.Socket().use {
+                        it.connect(java.net.InetSocketAddress(host, 8765), 350)
+                        result.add(Found("PC", host, 8765))
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }
+        pool.shutdown()
+        try {
+            pool.awaitTermination(timeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+        } catch (_: Exception) {
+        }
+        pool.shutdownNow()
+        return result.toList()
+    }
+
+    private fun localBase(): String? {
+        try {
+            for (ni in NetworkInterface.getNetworkInterfaces()) {
+                if (!ni.isUp || ni.isLoopback) continue
+                for (ia in ni.interfaceAddresses) {
+                    val a = ia.address
+                    if (a is java.net.Inet4Address && a.isSiteLocalAddress) {
+                        return a.hostAddress?.substringBeforeLast('.')
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return null
     }
 }

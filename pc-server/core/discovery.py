@@ -50,6 +50,7 @@ def _serve(port):
             data, addr = sock.recvfrom(256)
             if data.strip() == MAGIC:
                 sock.sendto(build_reply(addr[0]), addr)
+                log.info(f"Ricerca del PC: risposto al telefono {addr[0]}")
         except OSError:
             return
         except Exception as e:
